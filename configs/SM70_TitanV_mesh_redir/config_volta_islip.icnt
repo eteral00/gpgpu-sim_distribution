@@ -1,0 +1,110 @@
+//21*1 fly with 32 flits per packet under gpgpusim injection mode
+sim_power = 1;
+tech_file = techfile.txt;
+power_output_file = noc_power.txt;
+use_map = 1;
+flit_size = 32; 
+watch_out = packetWatchOut_.txt;
+
+
+// currently we do not use this, see subnets below
+network_count = 2;
+
+// Topology
+topology = mesh;
+k = 8;
+n = 2;
+
+// Routing
+router = iq;
+routing_function = dor;
+noq = 0;
+
+
+// Flow control
+
+classes = 1; // default = 1
+priority = age;
+deadlock_warn_timeout = 1024;
+
+num_vcs     = 4;
+vc_buf_size = 4;
+
+input_buffer_size = 512;
+ejection_buffer_size = 512;
+boundary_buffer_size = 512;
+output_buffer_size = -1; // default = -1
+
+wait_for_tail_credit = 0;
+
+// Router architecture
+
+vc_allocator = islip; //separable_input_first;
+sw_allocator = islip; //separable_input_first;
+alloc_iters  = 1;
+
+credit_delay   = 0;
+routing_delay  = 0;
+vc_alloc_delay = 1;
+sw_alloc_delay = 1;
+
+input_speedup     = 1;
+output_speedup    = 1;
+internal_speedup  = 2.0;
+
+// Traffic, GPGPU-Sim does not use this
+
+traffic                = uniform;
+packet_size ={{1,2,3,4},{10,20}};
+packet_size_rate={{1,1,1,1},{2,1}};
+
+// Simulation - Don't change
+
+sim_type       = gpgpusim;
+//sim_type = latency;
+injection_rate = 0.1;
+
+
+
+// Always use read and write no matter following line
+// use_read_write = 1;
+
+
+// subnets request = 0, reply = 1
+subnets = 2;
+
+read_request_subnet = 0;
+write_request_subnet = 0;
+
+read_reply_subnet = 1;
+write_reply_subnet = 1;
+
+
+// vcs, separated for each subnet
+read_request_begin_vc = 0;
+read_request_end_vc = 1;
+write_request_begin_vc = 1;
+write_request_end_vc = 1;
+
+probe_begin_vc = 2;
+probe_end_vc = 2;
+redirect_begin_vc = 3;
+redirect_end_vc = 3;
+
+
+read_reply_begin_vc = 0;
+read_reply_end_vc = 2;
+write_reply_begin_vc = 3;
+write_reply_end_vc = 3;
+
+
+
+lut_limit_cluster = 0;
+lut_limit_mc = 0;
+address_per_entry_mc = 0;
+
+mc_serve_new_address_same_content = 1;
+use_approx_sharing = 0;
+use_address_sharing_only = 0;
+
+// end

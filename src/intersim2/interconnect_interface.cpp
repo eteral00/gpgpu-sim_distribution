@@ -408,7 +408,7 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem, un
     // +--+--+--+--+
     // |M6|C6|M7|C7|
     // +--+--+--+--+
-    {
+    /*{
       unsigned memory_node[] = {1, 3, 4, 6, 9, 11, 12, 14};
       preset_memory_map[make_pair(8,8)] = vector<unsigned>(memory_node, memory_node+8);
     }
@@ -429,7 +429,18 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem, un
     {
       unsigned memory_node[] = {12, 20, 25, 28, 57, 60, 63, 92, 95,100,108};
       preset_memory_map[make_pair(110, 11)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
-    }
+    }*/
+    {
+        // unsigned memory_node[] = {0, 1, 2, 3, 4, 5, 6, 7, 56, 57, 58, 59, 60, 61, 62, 63};
+        // unsigned memory_node[] = {9, 11, 13, 15, 24, 26, 28, 30, 41, 43, 45, 47, 56, 58, 60, 62};
+        // preset_memory_map[make_pair(48, 16)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+
+        // unsigned int memory_node[] = {17, 19, 21, 23, 41, 43, 45, 47};
+	      unsigned memory_node[] = { 10, 13, 17, 22, 41, 46, 50, 53 };
+        preset_memory_map[make_pair(56, 8)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+     }
+
+
     const vector<int> config_memory_node(_icnt_config->GetIntArray("memory_node_map"));
     if (!config_memory_node.empty()) {
       if (config_memory_node.size() != _n_mem) {
