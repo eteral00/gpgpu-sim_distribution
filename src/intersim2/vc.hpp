@@ -77,7 +77,7 @@ public:
   ~VC();
 
   void AddFlit( Flit *f );
-  inline Flit *FrontFlit( ) const
+  inline Flit *FrontFlit( ) /* const */
   {
     return _buffer.empty() ? NULL : _buffer.front();
   }
@@ -120,7 +120,9 @@ public:
   {
     return _pri;
   }
-  void Route( tRoutingFunction rf, const Router* router, const Flit* f, int in_channel );
+
+  void Route( tRoutingFunction rf, const Router* router, Flit* f, int in_channel );
+  // void Route( tRoutingFunction rf, const Router* router, const Flit* f, int in_channel );
 
   inline int GetOccupancy() const
   {

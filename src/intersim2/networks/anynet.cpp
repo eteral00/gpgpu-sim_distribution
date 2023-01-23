@@ -208,7 +208,7 @@ void AnyNet::_BuildNet( const Configuration &config ){
 
 
 void AnyNet::RegisterRoutingFunctions() {
-  gRoutingFunctionMap["min_anynet"] = &min_anynet;
+  // gRoutingFunctionMap["min_anynet"] = &min_anynet;
 }
 
 void min_anynet( const Router *r, const Flit *f, int in_channel, 

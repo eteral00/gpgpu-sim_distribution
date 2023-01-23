@@ -56,4 +56,18 @@ IntersimConfig::IntersimConfig()
   _int_map["DISPLAY_HOP_DIST"]     = 0;     // distribution of hop counts
   _int_map["DISPLAY_PAIR_LATENCY"] = 0;     // avg. latency for each s-d pair
 
+  // Khoa
+  _int_map["probe_begin_vc"] = -1;
+  _int_map["probe_end_vc"] = -1;
+  _int_map["redirect_begin_vc"] = -1;
+  _int_map["redirect_end_vc"] = -1;
+
+  _int_map["lut_limit_cluster"] = 0;
+  _int_map["lut_limit_mc"] = 0;
+  _int_map["address_per_entry_mc"] = 0;
+
+  _int_map["mc_serve_new_address_same_content"] = 1;
+  _int_map["use_approx_sharing"] = 0;
+  _int_map["use_address_sharing_only"] = 0;
+
 }

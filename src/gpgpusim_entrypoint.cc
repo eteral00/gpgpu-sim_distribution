@@ -44,6 +44,7 @@ static int sg_argc = 3;
 static const char *sg_argv[] = {"", "-config", "gpgpusim.config"};
 
 void *gpgpu_sim_thread_sequential(void *ctx_ptr) {
+  printf("\nprinting from gpgpusim_entry_point sim_thread_sequential\n");
   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
   // at most one kernel running at a time
   bool done;
@@ -73,6 +74,7 @@ static void termination_callback() {
 }
 
 void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
+  printf("\nprinting from gpgpusim_entry_point sim_thread_concurrent\n");
   gpgpu_context *ctx = (gpgpu_context *)ctx_ptr;
   atexit(termination_callback);
   // concurrent kernel execution simulation thread
@@ -109,8 +111,9 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
       // behaviour may be incorrect. Check that a kernel has finished and
       // no other kernel is currently running.
       if (ctx->the_gpgpusim->g_stream_manager->operation(&sim_cycles) &&
-          !ctx->the_gpgpusim->g_the_gpu->active())
+          !ctx->the_gpgpusim->g_the_gpu->active()) {
         break;
+      }
 
       // functional simulation
       if (ctx->the_gpgpusim->g_the_gpu->is_functional_sim()) {
@@ -143,12 +146,13 @@ void *gpgpu_sim_thread_concurrent(void *ctx_ptr) {
       printf("GPGPU-Sim: ** STOP simulation thread (no work) **\n");
       fflush(stdout);
     }
+    pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock)); ////
     if (sim_cycles) {
       ctx->the_gpgpusim->g_the_gpu->print_stats();
       ctx->the_gpgpusim->g_the_gpu->update_stats();
       ctx->print_simulation_time();
     }
-    pthread_mutex_lock(&(ctx->the_gpgpusim->g_sim_lock));
+    
     ctx->the_gpgpusim->g_sim_active = false;
     pthread_mutex_unlock(&(ctx->the_gpgpusim->g_sim_lock));
   } while (!ctx->the_gpgpusim->g_sim_done);
@@ -242,6 +246,7 @@ void gpgpu_context::start_sim_thread(int api) {
       pthread_create(&(the_gpgpusim->g_simulation_thread), NULL,
                      gpgpu_sim_thread_sequential, (void *)this);
     }
+
   }
 }
 
@@ -255,7 +260,11 @@ void gpgpu_context::print_simulation_time() {
   m = difference / 60 - 60 * (h + 24 * d);
   s = difference - 60 * (m + 60 * (h + 24 * d));
 
+  printf("\n\nprint from gpgpusim_entrypoint 1\n");
+  fflush(stdout);
+
   fflush(stderr);
+  printf("\n\nprint from gpgpusim_entrypoint 2\n"); // Khoa, 2022/11/
   printf(
       "\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (%u sec)\n",
       (unsigned)d, (unsigned)h, (unsigned)m, (unsigned)s, (unsigned)difference);

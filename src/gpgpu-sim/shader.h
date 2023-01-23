@@ -1051,6 +1051,34 @@ class simd_function_unit {
   virtual bool can_issue(const warp_inst_t &inst) const {
     return m_dispatch_reg->empty() && !occupied.test(inst.latency);
   }
+
+
+  // Khoa, 2022/07/06
+  unsigned long long fu_last_active_tot_cycle;
+  unsigned long long fu_last_active_cycle;
+  unsigned long long fu_last_idle_tot_cycle;
+  unsigned long long fu_last_idle_cycle;
+  bool idle_toggle;
+  static unsigned total_fu_count;
+  unsigned fu_id;
+  bool check_idle() {
+    bool is_idle = m_dispatch_reg->empty();
+    if (!is_idle) {
+      return is_idle;
+    }
+
+    for (int idx = 0; idx < MAX_ALU_LATENCY; idx++) {
+      if (occupied.test(idx)) {
+        is_idle = false;
+        break;
+      }
+    }
+
+    return is_idle;
+  }
+
+
+
   virtual bool stallable() const = 0;
   virtual void print(FILE *fp) const {
     fprintf(fp, "%s dispatch= ", m_name.c_str());
@@ -1936,7 +1964,8 @@ class shader_core_ctx : public core_t {
   void store_ack(class mem_fetch *mf);
   bool warp_waiting_at_mem_barrier(unsigned warp_id);
   void set_max_cta(const kernel_info_t &kernel);
-  void warp_inst_complete(const warp_inst_t &inst);
+  // void warp_inst_complete(const warp_inst_t &inst);
+  void warp_inst_complete(warp_inst_t &inst); // Khoa
 
   // accessors
   std::list<unsigned> get_regs_written(const inst_t &fvt) const;
@@ -2110,7 +2139,7 @@ class shader_core_ctx : public core_t {
   }
   bool check_if_non_released_reduction_barrier(warp_inst_t &inst);
 
- protected:
+//  protected: // Khoa
   unsigned inactive_lanes_accesses_sfu(unsigned active_count, double latency) {
     return (((32 - active_count) >> 1) * latency) +
            (((32 - active_count) >> 3) * latency) +
@@ -2346,6 +2375,15 @@ class simt_core_cluster {
                               unsigned long long &total) const;
   virtual void create_shader_core_ctx() = 0;
 
+  
+  // Khoa, 2022/07/
+  std::list<mem_fetch *> m_peer_request_fifo;
+  std::list<mem_fetch *> m_response_buffer_fifo;
+  static unsigned peerReplyReceivedCount1;
+  static unsigned peerReplyReceivedCount2;
+  static unsigned peerReplySentCount;
+  static unsigned peerRequestReceivedCount;
+
  protected:
   unsigned m_cluster_id;
   gpgpu_sim *m_gpu;
@@ -2358,6 +2396,7 @@ class simt_core_cluster {
   unsigned m_cta_issue_next_core;
   std::list<unsigned> m_core_sim_order;
   std::list<mem_fetch *> m_response_fifo;
+  
 };
 
 class exec_simt_core_cluster : public simt_core_cluster {
@@ -2384,6 +2423,12 @@ class shader_memory_interface : public mem_fetch_interface {
     return m_cluster->icnt_injection_buffer_full(size, write);
   }
   virtual void push(mem_fetch *mf) {
+    // Khoa, 2022/06
+    // if (mf && mf->isatomic()) {
+    //   mf->do_atomic();
+    // }
+    // m_cluster->push_response_fifo(mf); //
+
     m_core->inc_simt_to_mem(mf->get_num_flits(true));
     m_cluster->icnt_inject_request_packet(mf);
   }

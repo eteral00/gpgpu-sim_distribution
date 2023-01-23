@@ -291,10 +291,10 @@ protected:
 
 public:
 
-  static TrafficManager * New(Configuration const & config, 
-			      vector<Network *> const & net);
+  // static TrafficManager * New(Configuration const & config, vector<Network *> const & net);
+  static TrafficManager * New(Configuration const & config, vector<Network *> const & net, unsigned n_shader); // Khoa
 
-  TrafficManager( const Configuration &config, const vector<Network *> & net );
+  TrafficManager( const Configuration &config, const vector<Network *> & net);
   virtual ~TrafficManager( );
 
   bool Run( );

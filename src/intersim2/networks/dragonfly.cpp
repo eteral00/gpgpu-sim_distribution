@@ -412,8 +412,8 @@ double DragonFlyNew::Capacity( ) const
 
 void DragonFlyNew::RegisterRoutingFunctions(){
 
-  gRoutingFunctionMap["min_dragonflynew"] = &min_dragonflynew;
-  gRoutingFunctionMap["ugal_dragonflynew"] = &ugal_dragonflynew;
+  // gRoutingFunctionMap["min_dragonflynew"] = &min_dragonflynew;
+  // gRoutingFunctionMap["ugal_dragonflynew"] = &ugal_dragonflynew;
 }
 
 

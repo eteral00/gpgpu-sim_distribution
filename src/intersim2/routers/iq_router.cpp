@@ -35,6 +35,9 @@
 #include <cassert>
 #include <limits>
 
+#include <set>
+#include <iterator>
+
 #include "globals.hpp"
 #include "random_utils.hpp"
 #include "vc.hpp"
@@ -47,11 +50,14 @@
 #include "switch_monitor.hpp"
 #include "buffer_monitor.hpp"
 
+#include "../../gpgpu-sim/mem_fetch.h"
+#include "../gputrafficmanager.hpp"
+
 IQRouter::IQRouter( Configuration const & config, Module *parent, 
 		    string const & name, int id, int inputs, int outputs )
 : Router( config, parent, name, id, inputs, outputs ), _active(false)
 {
-  _vcs         = config.GetInt( "num_vcs" );
+  _vcs = config.GetInt( "num_vcs" );
 
   _vc_busy_when_full = (config.GetInt("vc_busy_when_full") > 0);
   _vc_prioritize_empty = (config.GetInt("vc_prioritize_empty") > 0);
@@ -338,15 +344,55 @@ bool IQRouter::_ReceiveCredits( )
 
 void IQRouter::_InputQueuing( )
 {
-  for(map<int, Flit *>::const_iterator iter = _in_queue_flits.begin();
+  for(map<int, Flit *>::/*const_*/iterator iter = _in_queue_flits.begin();
       iter != _in_queue_flits.end();
       ++iter) {
 
     int const input = iter->first;
     assert((input >= 0) && (input < _inputs));
 
+    // Flit * const f = iter->second;
     Flit * const f = iter->second;
     assert(f);
+
+
+// Khoa
+// if (f->head) {
+//   if (f->type == Flit::READ_REQUEST ) {
+//     mem_fetch* mft = static_cast<mem_fetch* >(f->data);
+//     unsigned long long blAddress = mft->get_addr();
+//     std::string dataKey = _traffic_manager->makeDataKey(mft);
+//     if(_traffic_manager->NoCLUT_cluster[_id].count(blAddress)) {
+//       std::set<unsigned>::iterator itrt; 
+//       unsigned estimatedCost = _traffic_manager->estimateFullTripCost(8, f->src, f->dest, _id); // hard-coded major dimension = 8
+//       unsigned tCost;
+//       for (itrt = _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.begin(); 
+//             itrt != _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.end(); 
+//             itrt++) {
+//         tCost = _traffic_manager->estimateFullTripCost(8, f->src, *itrt, _id); // hard-coded major dimension = 8
+//         if ( tCost < estimatedCost ) { 
+//           // found a nearer data holder
+//           estimatedCost = tCost;
+
+// FILE *resOutFile_dest = fopen("testChangePacketDest_.csv", "a");  
+// fprintf(resOutFile_dest, "%u,%03u,%03u,%03u|%03u,%03u", 
+//   f->pid,
+//   _id,
+//   f->src,
+//   f->destMC,
+//   f->dest,
+//   (*itrt)
+//   );
+// fclose(resOutFile_dest);
+
+//           f->dest = (*itrt);
+//         }
+//       }
+//     }
+//   }
+// }
+////
+
 
     int const vc = f->vc;
     assert((vc >= 0) && (vc < _vcs));
@@ -460,7 +506,7 @@ void IQRouter::_InputQueuing( )
 
 void IQRouter::_RouteEvaluate( )
 {
-  assert(_routing_delay);
+  // assert(_routing_delay); // Khoa
 
   for(deque<pair<int, pair<int, int> > >::iterator iter = _route_vcs.begin();
       iter != _route_vcs.end();
@@ -477,14 +523,49 @@ void IQRouter::_RouteEvaluate( )
     int const vc = iter->second.second;
     assert((vc >= 0) && (vc < _vcs));
 
-    Buffer const * const cur_buf = _buf[input];
+    Buffer /*const*/ * const cur_buf = _buf[input];
     assert(!cur_buf->Empty(vc));
     assert(cur_buf->GetState(vc) == VC::routing);
 
-    Flit const * const f = cur_buf->FrontFlit(vc);
+    Flit /* const */ * const f = cur_buf->FrontFlit_n(vc);
     assert(f);
     assert(f->vc == vc);
     assert(f->head);
+
+// Khoa
+// if (f->type == Flit::READ_REQUEST ) {
+//   mem_fetch* mft = static_cast<mem_fetch* >(f->data);
+//   unsigned long long blAddress = mft->get_addr();
+//   std::string dataKey = _traffic_manager->makeDataKey(mft);
+//   if(_traffic_manager->NoCLUT_cluster[_id].count(blAddress)) {
+//     std::set<unsigned>::iterator itrt; 
+//     unsigned estimatedCost = _traffic_manager->estimateFullTripCost(8, f->src, f->dest, _id); // hard-coded major dimension = 8
+//     unsigned tCost;
+//     for (itrt = _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.begin(); 
+//           itrt != _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.end(); 
+//           itrt++) {
+//       tCost = _traffic_manager->estimateFullTripCost(8, f->src, *itrt, _id); // hard-coded major dimension = 8
+//       if ( tCost < estimatedCost ) { 
+//         // found a nearer data holder
+//         estimatedCost = tCost;
+
+// FILE *resOutFile_dest = fopen("testChangePacketDest_.csv", "a");  
+// fprintf(resOutFile_dest, "%u,%03u,%03u,%03u|%03u,%03u", 
+//   f->pid,
+//   _id,
+//   f->src,
+//   f->destMC,
+//   f->dest,
+//   (*itrt)
+//   );
+// fclose(resOutFile_dest);
+
+//         f->dest = (*itrt);
+//       }
+//     }
+//   }
+// }
+////
 
     if(f->watch) {
       *gWatchOut << GetSimTime() << " | " << FullName() << " | "
@@ -531,6 +612,12 @@ void IQRouter::_RouteUpdate( )
 		 << " (front: " << f->id
 		 << ")." << endl;
     }
+
+
+FILE *resOutFile_rt1 = fopen("testIQRouter_.csv", "a");
+fprintf(resOutFile_rt1, "break 1\n");
+fclose(resOutFile_rt1);
+
 
     cur_buf->Route(vc, _rf, this, f, input);
     cur_buf->SetState(vc, VC::vc_alloc);
@@ -1107,6 +1194,47 @@ void IQRouter::_SWHoldUpdate( )
 			 << "." << endl;
 	    }
 	    int in_channel = channel->GetSinkPort();
+
+
+// Khoa, 2022/08/
+// if (f->type == Flit::READ_REQUEST ) {
+//   mem_fetch* mft = static_cast<mem_fetch* >(f->data);
+//   unsigned long long blAddress = mft->get_addr();
+//   std::string dataKey = _traffic_manager->makeDataKey(mft);
+//   if(_traffic_manager->NoCLUT_cluster[_id].count(blAddress)) {
+//     std::set<unsigned>::iterator itrt; 
+//     unsigned estimatedCost = _traffic_manager->estimateFullTripCost(8, f->src, f->dest, _id); // hard-coded major dimension = 8
+//     unsigned tCost;
+//     for (itrt = _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.begin(); 
+//           itrt != _traffic_manager->NoCLUT_cluster[_id][blAddress]._icntIDs.end(); 
+//           itrt++) {
+//       tCost = _traffic_manager->estimateFullTripCost(8, f->src, *itrt, _id); // hard-coded major dimension = 8
+//       if ( tCost < estimatedCost ) { 
+//         // found a nearer data holder
+//         estimatedCost = tCost;
+
+// FILE *resOutFile_dest = fopen("testChangePacketDest_.csv", "a");  
+// fprintf(resOutFile_dest, "%u,%03u,%03u,%03u|%03u,%03u", 
+//   f->pid,
+//   _id,
+//   f->src,
+//   f->destMC,
+//   f->dest,
+//   (*itrt)
+//   );
+// fclose(resOutFile_dest);
+
+//         f->dest = (*itrt);
+//       }
+//     }
+//   }
+// }
+////
+FILE *resOutFile_rt2 = fopen("testIQRouter_.csv", "a");
+fprintf(resOutFile_rt2, "break 2\n");
+fclose(resOutFile_rt2);
+
+
 	    _rf(router, f, in_channel, &f->la_route_set, false);
 	  }
 	} else {
@@ -1239,7 +1367,7 @@ bool IQRouter::_SWAllocAddReq(int input, int vc, int output)
   assert((cur_buf->GetState(vc) == VC::active) || 
 	 (_speculative && (cur_buf->GetState(vc) == VC::vc_alloc)));
   
-  Flit const * const f = cur_buf->FrontFlit(vc);
+  Flit /*const*/ * const f = cur_buf->FrontFlit(vc);
   assert(f);
   assert(f->vc == vc);
   
@@ -2017,6 +2145,26 @@ void IQRouter::_SWAllocUpdate( )
 			 << "." << endl;
 	    }
 	    int in_channel = channel->GetSinkPort();
+
+
+// FILE *resOutFile_rt3 = fopen("testIQRouter_.csv", "a");
+// fprintf(resOutFile_rt3, "break 3\n");
+// fclose(resOutFile_rt3);
+if (f->pid == 141592) {
+  FILE *resOutFile_iqrr = fopen("testIQRouterRouting_.csv", "a");  
+  fprintf(resOutFile_iqrr, "%u,%03d,%03d,%03d,%03d|%03d,sn,%d\n", 
+    f->pid,
+    _id,
+    router->GetID(),
+    f->src,
+    f->destMC,
+    f->dest,
+    f->vc
+    );
+  fclose(resOutFile_iqrr);
+}
+
+
 	    _rf(router, f, in_channel, &f->la_route_set, false);
 	  }
 	} else {
@@ -2345,7 +2493,8 @@ vector<int> IQRouter::MaxCredits() const
   return result;
 }
 
-void IQRouter::_UpdateNOQ(int input, int vc, Flit const * f) {
+// void IQRouter::_UpdateNOQ(int input, int vc, Flit const * f) {
+  void IQRouter::_UpdateNOQ(int input, int vc, Flit * f) {
   assert(!_routing_delay);
   assert(f);
   assert(f->vc == vc);
@@ -2358,6 +2507,13 @@ void IQRouter::_UpdateNOQ(int input, int vc, Flit const * f) {
   if(router) {
     int in_channel = channel->GetSinkPort();
     OutputSet nos;
+
+
+FILE *resOutFile_rt4 = fopen("testIQRouter_.csv", "a");
+fprintf(resOutFile_rt4, "break 4\n");
+fclose(resOutFile_rt4);
+
+
     _rf(router, f, in_channel, &nos, false);
     sl = nos.GetSet();
     assert(sl.size() == 1);

@@ -1693,15 +1693,137 @@ int tensorcore_op(int inst_opcode) {
   else
     return 0;
 }
+
+
+
+
+// Khoa
+void ptx_thread_info::decode_space(memory_space_t &space, ptx_thread_info *thread,
+                  const operand_info &op, memory_space *&mem, addr_t &addr) {
+  unsigned smid = thread->get_hw_sid();
+  unsigned hwtid = thread->get_hw_tid();
+
+  if (space == param_space_unclassified) {
+    // need to op to determine whether it refers to a kernel param or local
+    // param
+    const symbol *s = op.get_symbol();
+    const type_info *t = s->type();
+    type_info_key ti = t->get_key();
+    if (ti.is_param_kernel())
+      space = param_space_kernel;
+    else if (ti.is_param_local()) {
+      space = param_space_local;
+    }
+    // mov r1, param-label
+    else if (ti.is_reg()) {
+      space = param_space_kernel;
+    } else {
+      printf("GPGPU-Sim PTX: ERROR ** cannot resolve .param space for '%s'\n",
+             s->name().c_str());
+      abort();
+    }
+  }
+  switch (space.get_type()) {
+    case global_space:
+      mem = thread->get_global_memory();
+      break;
+    case param_space_local:
+    case local_space:
+      mem = thread->m_local_mem;
+      addr += thread->get_local_mem_stack_pointer();
+      break;
+    case tex_space:
+      mem = thread->get_tex_memory();
+      break;
+    case surf_space:
+      mem = thread->get_surf_memory();
+      break;
+    case param_space_kernel:
+      mem = thread->get_param_memory();
+      break;
+    case shared_space:
+      mem = thread->m_shared_mem;
+      break;
+    case sstarr_space:
+      mem = thread->m_sstarr_mem;
+      break;
+    case const_space:
+      mem = thread->get_global_memory();
+      break;
+    case generic_space:
+      if (thread->get_ptx_version().ver() >= 2.0) {
+        // convert generic address to memory space address
+        space = whichspace(addr);
+        switch (space.get_type()) {
+          case global_space:
+            mem = thread->get_global_memory();
+            addr = generic_to_global(addr);
+            break;
+          case local_space:
+            mem = thread->m_local_mem;
+            addr = generic_to_local(smid, hwtid, addr);
+            break;
+          case shared_space:
+            mem = thread->m_shared_mem;
+            addr = generic_to_shared(smid, addr);
+            break;
+          default:
+            abort();
+        }
+      } else {
+        abort();
+      }
+      break;
+    case param_space_unclassified:
+    case undefined_space:
+    default:
+      abort();
+  }
+}
+
+
 void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
+
   bool skip = false;
   int op_classification = 0;
-  addr_t pc = next_instr();
-  assert(pc ==
-         inst.pc);  // make sure timing model and functional model are in sync
-  const ptx_instruction *pI = m_func_info->get_instruction(pc);
 
+  addr_t pc;
+
+
+// Khoa
+
+// FILE *resOutFile_pcs = fopen("testPCs_.csv", "a");
+
+// fprintf(resOutFile_pcs, 
+//   ",%llu,0x%08llx,ptx_exec_0x%08llx,%llu,%llu,%llu,%u_,%u||,%u\n", 
+//   inst.get_uid(),
+//   inst.pc,
+//   next_instr(),
+//   get_core()->get_gpu()->gpu_sim_cycle,
+//   get_core()->get_gpu()->gpu_tot_sim_cycle,
+//   inst.issue_cycle,
+//   get_hw_sid(),
+//   inst.op,
+//   inst.comMemOp
+// );
+
+// fclose(resOutFile_pcs); 
+//
+
+const ptx_instruction *pI;
+
+if (inst.comMemOp < 2) { // Khoa
+  pc = next_instr();
+  assert(pc == inst.pc);  // make sure timing model and functional model are in sync 
+  pI = m_func_info->get_instruction(pc);
   set_npc(pc + pI->inst_size());
+} else { // 2nd round for load inst
+  pc = inst.pc;
+  pI = m_func_info->get_instruction(pc);
+} //
+
+// const ptx_instruction *pI = m_func_info->get_instruction(pc);
+// set_npc(pc + pI->inst_size());
 
   try {
     clearRPC();
@@ -1736,7 +1858,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
     }
     int inst_opcode = pI->get_opcode();
 
-    if (skip) {
+    if (skip) { //
       inst.set_not_active(lane_id);
     } else {
       const ptx_instruction *pI_saved = pI;
@@ -1757,6 +1879,10 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
         }
       }
 
+
+// if (inst.comMemOp > 0) { // Khoa
+
+
       // Tensorcore is warp synchronous operation. So these instructions needs
       // to be executed only once. To make the simulation faster removing the
       // redundant tensorcore operation
@@ -1764,15 +1890,15 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
           ((tensorcore_op(inst_opcode)) && (lane_id == 0))) {
         switch (inst_opcode) {
 #define OP_DEF(OP, FUNC, STR, DST, CLASSIFICATION) \
-  case OP:                                         \
-    FUNC(pI, this);                                \
-    op_classification = CLASSIFICATION;            \
-    break;
+          case OP:                                         \
+            FUNC(pI, this);                                \
+            op_classification = CLASSIFICATION;            \
+            break;
 #define OP_W_DEF(OP, FUNC, STR, DST, CLASSIFICATION) \
-  case OP:                                           \
-    FUNC(pI, get_core(), inst);                      \
-    op_classification = CLASSIFICATION;              \
-    break;
+          case OP:                                           \
+            FUNC(pI, get_core(), inst);                      \
+            op_classification = CLASSIFICATION;              \
+            break;
 #include "opcodes.def"
 #undef OP_DEF
 #undef OP_W_DEF
@@ -1782,12 +1908,98 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
             break;
         }
       }
+
+// } else {
+  // const operand_info &dst = pI->dst();
+  // const operand_info &src1 = pI->src1();  // may be scalar or vector of regs
+  // unsigned type = pI->get_type();
+  // unsigned vector_spec = pI->get_vector();
+  // memory_space_t space = pI->get_space();
+  // memory_space *mem = NULL;
+  // addr_t addr;
+  // ptx_reg_t data;
+  // size_t size;
+  // int t;
+
+  // if (inst.op == LOAD_OP) {
+  //   ptx_reg_t src1_data = get_operand_value(src1, dst, type, this, 1);
+  //   addr = src1_data.u32;
+
+  //   decode_space(space, this, src1, mem, addr);
+
+  //   data.u64 = 0;
+  //   type_info_key::type_decode(type, size, t);
+  //   // if (!vector_spec) {
+  //   //   mem->read(addr, size / 8, &data.s64);
+  //   //   if (type == S16_TYPE || type == S32_TYPE) sign_extend(data, size, dst);
+  //   //   thread->set_operand_value(dst, data, type, thread, pI);
+  //   // } else {
+  //   //   ptx_reg_t data1, data2, data3, data4;
+  //   //   mem->read(addr, size / 8, &data1.s64);
+  //   //   mem->read(addr + size / 8, size / 8, &data2.s64);
+  //   //   if (vector_spec != V2_TYPE) {  // either V3 or V4
+  //   //     mem->read(addr + 2 * size / 8, size / 8, &data3.s64);
+  //   //     if (vector_spec != V3_TYPE) {  // v4
+  //   //       mem->read(addr + 3 * size / 8, size / 8, &data4.s64);
+  //   //       thread->set_vector_operand_values(dst, data1, data2, data3, data4);
+  //   //     } else  // v3
+  //   //       thread->set_vector_operand_values(dst, data1, data2, data3, data3);
+  //   //   } else  // v2
+  //   //     thread->set_vector_operand_values(dst, data1, data2, data2, data2);
+  //   // }
+  // } else if (inst.op == STORE_OP) {
+  //   ptx_reg_t addr_reg = get_operand_value(dst, dst, type, this, 1);
+  //   addr = addr_reg.u32;
+
+  //   decode_space(space, this, dst, mem, addr);
+
+  //   type_info_key::type_decode(type, size, t);
+
+  //   // if (!vector_spec) {
+  //   //   data = thread->get_operand_value(src1, dst, type, thread, 1);
+  //   //   mem->write(addr, size / 8, &data.s64, thread, pI);
+  //   // } else {
+  //   //   if (vector_spec == V2_TYPE) {
+  //   //     ptx_reg_t *ptx_regs = new ptx_reg_t[2];
+  //   //     thread->get_vector_operand_values(src1, ptx_regs, 2);
+  //   //     mem->write(addr, size / 8, &ptx_regs[0].s64, thread, pI);
+  //   //     mem->write(addr + size / 8, size / 8, &ptx_regs[1].s64, thread, pI);
+  //   //     delete[] ptx_regs;
+  //   //   }
+  //   //   if (vector_spec == V3_TYPE) {
+  //   //     ptx_reg_t *ptx_regs = new ptx_reg_t[3];
+  //   //     thread->get_vector_operand_values(src1, ptx_regs, 3);
+  //   //     mem->write(addr, size / 8, &ptx_regs[0].s64, thread, pI);
+  //   //     mem->write(addr + size / 8, size / 8, &ptx_regs[1].s64, thread, pI);
+  //   //     mem->write(addr + 2 * size / 8, size / 8, &ptx_regs[2].s64, thread, pI);
+  //   //     delete[] ptx_regs;
+  //   //   }
+  //   //   if (vector_spec == V4_TYPE) {
+  //   //     ptx_reg_t *ptx_regs = new ptx_reg_t[4];
+  //   //     thread->get_vector_operand_values(src1, ptx_regs, 4);
+  //   //     mem->write(addr, size / 8, &ptx_regs[0].s64, thread, pI);
+  //   //     mem->write(addr + size / 8, size / 8, &ptx_regs[1].s64, thread, pI);
+  //   //     mem->write(addr + 2 * size / 8, size / 8, &ptx_regs[2].s64, thread, pI);
+  //   //     mem->write(addr + 3 * size / 8, size / 8, &ptx_regs[3].s64, thread, pI);
+  //   //     delete[] ptx_regs;
+  //   //   }
+  //   // }
+  // }
+  
+
+  // m_last_effective_address = addr;
+  // m_last_memory_space = space;
+  
+// }///////////////
+
       delete pJ;
       pI = pI_saved;
 
       // Run exit instruction if exit option included
       if (pI->is_exit()) exit_impl(pI, this);
     }
+
+if (inst.comMemOp < 2) {// Khoa
 
     const gpgpu_functional_sim_config &config = m_gpu->get_config();
 
@@ -1872,7 +2084,9 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
                                                                    pc))
         dump_regs(stdout);
     }
+
     update_pc();
+
     m_gpu->gpgpu_ctx->func_sim->g_ptx_sim_num_insn++;
 
     // not using it with functional simulation mode
@@ -1940,6 +2154,9 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
         assert(inst.memory_op == insn_memory_op);
       }
     }
+} else {
+  inst.comMemOp++;
+}////
 
   } catch (int x) {
     printf("GPGPU-Sim PTX: ERROR (%d) executing intruction (%s:%u)\n", x,
@@ -1947,6 +2164,7 @@ void ptx_thread_info::ptx_exec_inst(warp_inst_t &inst, unsigned lane_id) {
     printf("GPGPU-Sim PTX:       '%s'\n", pI->get_source());
     abort();
   }
+
 }
 
 void cuda_sim::set_param_gpgpu_num_shaders(int num_shaders) {
@@ -2491,7 +2709,11 @@ void cuda_sim::gpgpu_cuda_ptx_sim_main_func(kernel_info_t &kernel,
   minutes = elapsed_time / 60 - 60 * (hrs + 24 * days);
   sec = elapsed_time - 60 * (minutes + 60 * (hrs + 24 * days));
 
+  printf("\n\nprint from cuda-sim 1\n");
+  fflush(stdout);
+  
   fflush(stderr);
+  printf("\n\nprint from cuda-sim 2\n");
   printf(
       "\n\ngpgpu_simulation_time = %u days, %u hrs, %u min, %u sec (%u sec)\n",
       (unsigned)days, (unsigned)hrs, (unsigned)minutes, (unsigned)sec,

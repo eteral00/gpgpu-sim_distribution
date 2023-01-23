@@ -69,6 +69,22 @@ mem_fetch::mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
     m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
     m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
   }
+
+
+
+  //// Khoa, 2022/07/
+  m_ptpc = -1;
+  sharerIcntID = -1;
+  mcIcntID = 255;
+  peerIcntID = 255;
+  homebaseIcntID = 255;
+  redirectedAddress = 0;
+
+  time_RequestReceived = 0;
+  time_RequestInMCQueue = 0;
+  time_ReadReplyInMCQueue = 0;
+  time_ReadReplySent = 0;
+  
 }
 
 mem_fetch::~mem_fetch() { m_status = MEM_FETCH_DELETED; }

@@ -119,6 +119,7 @@ unsigned cache_config::hash_function(new_addr_type addr, unsigned m_nset,
       break;
     }
     case HASH_IPOLY_FUNCTION: {
+      // printf("IPoly hash break 3\n"); // Khoa
       new_addr_type higher_bits = addr >> (m_line_sz_log2 + m_nset_log2);
       unsigned index = (addr >> m_line_sz_log2) & (m_nset - 1);
       set_index = ipoly_hash_function(higher_bits, index, m_nset);
@@ -1049,6 +1050,10 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
     }
   }
 
+  // Khoa
+  mf->get_w_inst()->comMemOp = 2;
+  //
+
   extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
   assert(e != m_extra_mf_fields.end());
   assert(e->second.m_valid);
@@ -1072,6 +1077,7 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
   }
   m_extra_mf_fields.erase(mf);
   m_bandwidth_management.use_fill_port(mf);
+
 }
 
 /// Checks if mf is waiting to be filled by lower memory level

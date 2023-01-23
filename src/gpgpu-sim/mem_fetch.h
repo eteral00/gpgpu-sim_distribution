@@ -118,7 +118,9 @@ class mem_fetch {
   }
 
   address_type get_pc() const { return m_inst.empty() ? -1 : m_inst.pc; }
+
   const warp_inst_t &get_inst() { return m_inst; }
+
   enum mem_fetch_status get_status() const { return m_status; }
 
   const memory_config *get_mem_config() { return m_mem_config; }
@@ -127,6 +129,25 @@ class mem_fetch {
 
   mem_fetch *get_original_mf() { return original_mf; }
   mem_fetch *get_original_wr_mf() { return original_wr_mf; }
+
+
+
+// Khoa, 2022/07/
+  int m_ptpc; 
+  warp_inst_t * get_w_inst() { return (warp_inst_t *)(&m_inst); }
+  // new_addr_type redirectedAddress;
+  long long unsigned redirectedAddress;
+  unsigned mcIcntID;
+  unsigned peerIcntID;
+  unsigned homebaseIcntID;
+  int sharerIcntID; 
+
+  long long unsigned time_RequestReceived;
+  long long unsigned time_RequestInMCQueue;
+  long long unsigned time_ReadReplyInMCQueue;
+  long long unsigned time_ReadReplySent;
+////
+
 
  private:
   // request source information

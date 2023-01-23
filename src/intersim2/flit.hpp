@@ -30,25 +30,34 @@
 
 #include <iostream>
 #include <stack>
+#include <set>
+
+#include <vector>
 
 #include "booksim.hpp"
 #include "outputset.hpp"
+
+
+class GPUTrafficManager;
 
 class Flit {
 
 public:
 
-  const static int NUM_FLIT_TYPES = 5;
+  // const static int NUM_FLIT_TYPES = 5;
+  const static int NUM_FLIT_TYPES = 6;
   enum FlitType { READ_REQUEST  = 0, 
 		  READ_REPLY    = 1,
 		  WRITE_REQUEST = 2,
 		  WRITE_REPLY   = 3,
-                  ANY_TYPE      = 4 };
+                  ANY_TYPE      = 4, 
+                  LUT_UPDATE = 5 // Khoa, 2022/07/
+                  };
   FlitType type;
 
   int vc;
 
-  int cl;
+  int cl; // class
 
   bool head;
   bool tail;
@@ -64,8 +73,24 @@ public:
 
   int  src;
   int  dest;
+  
+////  
+  int destMC; // Khoa, 2022/07/
+  set< pair<unsigned, long long unsigned> > holderNodes;
+  // set< unsigned > holderNodes; // a.k.a. requesterNodes // Khoa, 2022/07/ 
+  set< unsigned > holderNodes2;
+  int probeDelay;
+  GPUTrafficManager* _traffic_manager;
+  bool redirectedFlag;
+  std::vector< unsigned > redirectNodes;
+  std::vector< unsigned > redirectDests;
+  unsigned currentLocation;
+  long long unsigned redirectedAddress;
+  bool isProbeFlag;
+////
 
-  int  pri;
+  unsigned pri;
+  // int  pri;
 
   int  hops;
   bool watch;

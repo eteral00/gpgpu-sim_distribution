@@ -1486,6 +1486,9 @@ class half {
   /// initialization, it is needed to provide proper value-initialization
   /// semantics.
   HALF_CONSTEXPR half() HALF_NOEXCEPT : data_() {}
+  
+  /// Internal binary representation
+  detail::uint16 data_; // Khoa
 
   /// Copy constructor.
   /// \tparam T type of concrete half expression
@@ -1621,8 +1624,8 @@ class half {
   HALF_CONSTEXPR half(detail::binary_t, detail::uint16 bits) HALF_NOEXCEPT
       : data_(bits) {}
 
-  /// Internal binary representation
-  detail::uint16 data_;
+  // /// Internal binary representation
+  // detail::uint16 data_; // Khoa
 };
 
 #if HALF_ENABLE_CPP11_USER_LITERALS

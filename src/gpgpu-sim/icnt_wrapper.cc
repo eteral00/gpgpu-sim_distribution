@@ -61,27 +61,42 @@ static void intersim2_create(unsigned int n_shader, unsigned int n_mem) {
 
 static void intersim2_init() { g_icnt_interface->Init(); }
 
-static bool intersim2_has_buffer(unsigned input, unsigned int size) {
-  return g_icnt_interface->HasBuffer(input, size);
+static bool intersim2_has_buffer(unsigned input, unsigned int size, unsigned subnet) {
+// static bool intersim2_has_buffer(unsigned input, unsigned int size) {
+  // return g_icnt_interface->HasBuffer(input, size, subnet); // Khoa
+  return g_icnt_interface->HasBuffer(input, size, subnet) && g_icnt_interface->HasVCBuffer(input, size, subnet, 2) ;
 }
 
-static void intersim2_push(unsigned input, unsigned output, void* data,
-                           unsigned int size) {
+static void intersim2_push(unsigned input, unsigned output, void* data, unsigned int size) {
   g_icnt_interface->Push(input, output, data, size);
 }
 
-static void* intersim2_pop(unsigned output) {
-  return g_icnt_interface->Pop(output);
+
+static void* intersim2_pop(unsigned output, unsigned subnet, long long unsigned cycle) {
+// static void* intersim2_pop(unsigned output) {
+  // return g_icnt_interface->Pop(output);
+  return g_icnt_interface->Pop(output, subnet, cycle); // Khoa
 }
 
-static void intersim2_transfer() { g_icnt_interface->Advance(); }
+
+static void intersim2_transfer(long long unsigned cycle) { 
+// static void intersim2_transfer() {
+  // g_icnt_interface->Advance(); 
+  g_icnt_interface->Advance(cycle); // Khoa
+}
 
 static bool intersim2_busy() { return g_icnt_interface->Busy(); }
 
-static void intersim2_display_stats() { g_icnt_interface->DisplayStats(); }
+static void intersim2_display_stats() { 
+  // Khoa, 2022/07/
+  g_icnt_interface->printLUT();
+
+  g_icnt_interface->DisplayStats(); 
+}
 
 static void intersim2_display_overall_stats() {
   g_icnt_interface->DisplayOverallStats();
+
 }
 
 static void intersim2_display_state(FILE* fp) {
@@ -101,20 +116,24 @@ static void LocalInterconnect_create(unsigned int n_shader,
 
 static void LocalInterconnect_init() { g_localicnt_interface->Init(); }
 
-static bool LocalInterconnect_has_buffer(unsigned input, unsigned int size) {
+static bool LocalInterconnect_has_buffer(unsigned input, unsigned int size, unsigned subnet) {
+// static bool LocalInterconnect_has_buffer(unsigned input, unsigned int size) {
   return g_localicnt_interface->HasBuffer(input, size);
 }
 
-static void LocalInterconnect_push(unsigned input, unsigned output, void* data,
-                                   unsigned int size) {
+static void LocalInterconnect_push(unsigned input, unsigned output, void* data, unsigned int size) {
   g_localicnt_interface->Push(input, output, data, size);
 }
 
-static void* LocalInterconnect_pop(unsigned output) {
+static void* LocalInterconnect_pop(unsigned output, unsigned subnet, long long unsigned cycle) {
+// static void* LocalInterconnect_pop(unsigned output) {
   return g_localicnt_interface->Pop(output);
 }
 
-static void LocalInterconnect_transfer() { g_localicnt_interface->Advance(); }
+static void LocalInterconnect_transfer(long long unsigned cycle) { 
+// static void LocalInterconnect_transfer() { 
+  g_localicnt_interface->Advance(); 
+}
 
 static bool LocalInterconnect_busy() { return g_localicnt_interface->Busy(); }
 

@@ -42,10 +42,15 @@
 #include "config_utils.hpp"
 #include "globals.hpp"
 
+
+// #include "../gputrafficmanager.hpp"
+class GPUTrafficManager;
+
 typedef Channel<Credit> CreditChannel;
 
 
 class Network : public TimedModule {
+
 protected:
 
   int _size;
@@ -53,7 +58,7 @@ protected:
   int _channels;
   int _classes;
 
-  vector<Router *> _routers;
+  // vector<Router *> _routers; // Khoa
 
   vector<FlitChannel *> _inject;
   vector<CreditChannel *> _inject_cred;
@@ -112,6 +117,14 @@ public:
   const vector<Router *> & GetRouters(){return _routers;}
   Router * GetRouter(int index) {return _routers[index];}
   int NumRouters() const {return _size;}
+
+
+// Khoa
+// public:
+  // GPUTrafficManager* _traffic_manager;
+  vector<Router *> _routers;
+////
+
 };
 
 #endif 

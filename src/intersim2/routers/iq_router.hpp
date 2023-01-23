@@ -137,7 +137,8 @@ class IQRouter : public Router {
   void _SendFlits( );
   void _SendCredits( );
   
-  void _UpdateNOQ(int input, int vc, Flit const * f);
+  // void _UpdateNOQ(int input, int vc, Flit const * f);
+  void _UpdateNOQ(int input, int vc, Flit * f);
 
   // ----------------------------------------
   //

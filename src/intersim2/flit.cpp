@@ -34,8 +34,9 @@
  *When adding objects make sure to set a default value in this constructor
  */
 
-#include "booksim.hpp"
 #include "flit.hpp"
+#include "booksim.hpp"
+
 
 stack<Flit *> Flit::_all;
 stack<Flit *> Flit::_free;
@@ -80,6 +81,12 @@ void Flit::Reset()
   intm =-1;
   ph = -1;
   data = 0;
+
+
+  //// Khoa
+  redirectedFlag  = false;
+  isProbeFlag = false;
+  ////
 }  
 
 Flit * Flit::New() {

@@ -25,6 +25,8 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "trafficmanager.hpp"
+
 #include <sstream>
 #include <cmath>
 #include <fstream>
@@ -33,16 +35,14 @@
 
 #include "booksim.hpp"
 #include "booksim_config.hpp"
-#include "trafficmanager.hpp"
 #include "batchtrafficmanager.hpp"
 #include "gputrafficmanager.hpp"
 #include "random_utils.hpp" 
 #include "vc.hpp"
 #include "packet_reply_info.hpp"
 
-TrafficManager * TrafficManager::New(Configuration const & config,
-                                     vector<Network *> const & net)
-{
+// TrafficManager * TrafficManager::New(Configuration const & config, vector<Network *> const & net) {
+TrafficManager * TrafficManager::New(Configuration const & config, vector<Network *> const & net, unsigned n_shader) {
     TrafficManager * result = NULL;
     string sim_type = config.GetStr("sim_type");
     if((sim_type == "latency") || (sim_type == "throughput")) {
@@ -50,7 +50,8 @@ TrafficManager * TrafficManager::New(Configuration const & config,
     } else if(sim_type == "batch") {
         result = new BatchTrafficManager(config, net);
   } else if(sim_type == "gpgpusim") {
-    result = new GPUTrafficManager(config, net);
+    // result = new GPUTrafficManager(config, net);
+    result = new GPUTrafficManager(config, net, n_shader);
   }
   else {
         cerr << "Unknown simulation type: " << sim_type << endl;
@@ -105,6 +106,7 @@ TrafficManager::TrafficManager( const Configuration &config, const vector<Networ
     if(rf_iter == gRoutingFunctionMap.end()) {
         Error("Invalid routing function: " + rf);
     }
+    printf("### Khoa ###: ROUTING FUNCTION IN USE: %s\n", (rf_iter->first).c_str() ); // Khoa
     _rf = rf_iter->second;
   
     _lookahead_routing = !config.GetInt("routing_delay");

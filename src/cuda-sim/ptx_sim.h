@@ -304,6 +304,96 @@ class ptx_thread_info {
     m_functionalSimulationMode = fsim;
   }
 
+
+/////
+void decode_space(memory_space_t &space, 
+                  ptx_thread_info *thread,
+                  const operand_info &op, 
+                  memory_space *&mem, 
+                  addr_t &addr); //{
+//   unsigned smid = thread->get_hw_sid();
+//   unsigned hwtid = thread->get_hw_tid();
+
+//   if (space == param_space_unclassified) {
+//     // need to op to determine whether it refers to a kernel param or local
+//     // param
+//     const symbol *s = op.get_symbol();
+//     const type_info *t = s->type();
+//     type_info_key ti = t->get_key();
+//     if (ti.is_param_kernel())
+//       space = param_space_kernel;
+//     else if (ti.is_param_local()) {
+//       space = param_space_local;
+//     }
+//     // mov r1, param-label
+//     else if (ti.is_reg()) {
+//       space = param_space_kernel;
+//     } else {
+//       printf("GPGPU-Sim PTX: ERROR ** cannot resolve .param space for '%s'\n",
+//              s->name().c_str());
+//       abort();
+//     }
+//   }
+//   switch (space.get_type()) {
+//     case global_space:
+//       mem = thread->get_global_memory();
+//       break;
+//     case param_space_local:
+//     case local_space:
+//       mem = thread->m_local_mem;
+//       addr += thread->get_local_mem_stack_pointer();
+//       break;
+//     case tex_space:
+//       mem = thread->get_tex_memory();
+//       break;
+//     case surf_space:
+//       mem = thread->get_surf_memory();
+//       break;
+//     case param_space_kernel:
+//       mem = thread->get_param_memory();
+//       break;
+//     case shared_space:
+//       mem = thread->m_shared_mem;
+//       break;
+//     case sstarr_space:
+//       mem = thread->m_sstarr_mem;
+//       break;
+//     case const_space:
+//       mem = thread->get_global_memory();
+//       break;
+//     case generic_space:
+//       if (thread->get_ptx_version().ver() >= 2.0) {
+//         // convert generic address to memory space address
+//         space = whichspace(addr);
+//         switch (space.get_type()) {
+//           case global_space:
+//             mem = thread->get_global_memory();
+//             addr = generic_to_global(addr);
+//             break;
+//           case local_space:
+//             mem = thread->m_local_mem;
+//             addr = generic_to_local(smid, hwtid, addr);
+//             break;
+//           case shared_space:
+//             mem = thread->m_shared_mem;
+//             addr = generic_to_shared(smid, addr);
+//             break;
+//           default:
+//             abort();
+//         }
+//       } else {
+//         abort();
+//       }
+//       break;
+//     case param_space_unclassified:
+//     case undefined_space:
+//     default:
+//       abort();
+//   }
+// }
+/////
+
+
   void ptx_fetch_inst(inst_t &inst) const;
   void ptx_exec_inst(warp_inst_t &inst, unsigned lane_id);
 
