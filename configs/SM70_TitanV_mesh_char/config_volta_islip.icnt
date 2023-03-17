@@ -104,7 +104,8 @@ lut_limit_mc = 0;
 address_per_entry_mc = 0;
 
 mc_serve_new_address_same_content = 1;
-use_approx_sharing = 1;
 use_address_sharing_only = 0;
+use_approx_sharing = 1;
+use_approx_method = 2;
 
 // end

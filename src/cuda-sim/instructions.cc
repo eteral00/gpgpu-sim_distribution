@@ -26,14 +26,9 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
+
 #include "instructions.h"
-#include "half.h"
-#include "half.hpp"
-#include "opcodes.h"
-#include "ptx_ir.h"
-#include "ptx_sim.h"
-typedef void *yyscan_t;
-class ptx_recognizer;
+
 #include <assert.h>
 #include <fenv.h>
 #include <math.h>
@@ -44,6 +39,17 @@ class ptx_recognizer;
 #include <map>
 #include <sstream>
 #include <string>
+#include <time.h>
+
+#include "half.h"
+#include "half.hpp"
+#include "opcodes.h"
+#include "ptx_ir.h"
+#include "ptx_sim.h"
+
+typedef void *yyscan_t;
+class ptx_recognizer;
+
 #include "../abstract_hardware_model.h"
 #include "../gpgpu-sim/gpu-sim.h"
 #include "../gpgpu-sim/shader.h"
@@ -51,6 +57,8 @@ class ptx_recognizer;
 #include "cuda_device_printf.h"
 #include "ptx.tab.h"
 #include "ptx_loader.h"
+
+// #include "cuda-sim.h"
 
 // Jin: include device runtime for CDP
 #include "cuda_device_runtime.h"
@@ -2120,6 +2128,67 @@ void mma_impl(const ptx_instruction *pI, core_t *core, warp_inst_t inst) {
       abort();
     }
   }
+
+
+
+  // //Khoa, 2022/06/05
+  // FILE *resOutFile_ma = fopen("testMatrix_a_.csv", "a");  
+  // // fprintf(resOutFile_ma, "MATRIX_A:\n");
+  // for (i = 0; i < 16; i++) {
+  //   for (j = 0; j < 16; j++) {
+  //     temp = matrix_a[i][j].f16;
+  //     fprintf(resOutFile_ma, "%.2f,", temp);
+  //   }
+  //   fprintf(resOutFile_ma, "\n");
+  // }
+  // fprintf(resOutFile_ma, "\n");
+  // fclose(resOutFile_ma); //
+
+  // FILE *resOutFile_mb = fopen("testMatrix_b_.csv", "a");
+  // // fprintf(resOutFile_mb, "MATRIX_B:\n");
+  // for (i = 0; i < 16; i++) {
+  //   for (j = 0; j < 16; j++) {
+  //     temp = matrix_b[i][j].f16;
+  //     fprintf(resOutFile_mb, "%.2f,", temp);
+  //   }
+  //   fprintf(resOutFile_mb, "\n");
+  // }
+  // fprintf(resOutFile_mb, "\n");
+  // fclose(resOutFile_mb); //
+
+  // FILE *resOutFile_mc = fopen("testMatrix_c_.csv", "a");
+  // // fprintf(resOutFile_mc, "MATRIX_C:\n");
+  // for (i = 0; i < 16; i++) {
+  //   for (j = 0; j < 16; j++) {
+  //     if (type2 == F16_TYPE) {
+  //       temp = matrix_c[i][j].f16;
+  //       fprintf(resOutFile_mc, "%.2f,", temp);
+  //     } else {
+  //       fprintf(resOutFile_mc, "%.2f,", matrix_c[i][j].f32);
+  //     }
+  //   }
+  //   fprintf(resOutFile_mc, "\n");
+  // }
+  // fprintf(resOutFile_mc, "\n");
+  // fclose(resOutFile_mc); //
+  // FILE *resOutFile_md = fopen("testMatrix_d_.csv", "a");
+  // // fprintf(resOutFile_md, "MATRIX_D:\n");
+  // for (i = 0; i < 16; i++) {
+  //   for (j = 0; j < 16; j++) {
+  //     if (type == F16_TYPE) {
+  //       temp = matrix_d[i][j].f16;
+  //       fprintf(resOutFile_md, "%.2f,", temp);
+  //     } else {
+  //       fprintf(resOutFile_md, "%.2f,", matrix_d[i][j].f32);
+  //     }
+  //   }
+  //   fprintf(resOutFile_md, "\n");
+  // }
+  // fprintf(resOutFile_md, "\n"); //
+  // fclose(resOutFile_md); ////
+
+
+
 }
 
 void call_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
@@ -3355,7 +3424,8 @@ void decode_space(memory_space_t &space, ptx_thread_info *thread,
   }
 }
 
-void ld_exec(const ptx_instruction *pI, ptx_thread_info *thread) {
+// void ld_exec(const ptx_instruction *pI, ptx_thread_info *thread) {
+void ld_exec(const ptx_instruction *pI, ptx_thread_info *thread, char * inst_str) {
   const operand_info &dst = pI->dst();
   const operand_info &src1 = pI->src1();
 
@@ -3392,16 +3462,111 @@ void ld_exec(const ptx_instruction *pI, ptx_thread_info *thread) {
         thread->set_vector_operand_values(dst, data1, data2, data3, data3);
     } else  // v2
       thread->set_vector_operand_values(dst, data1, data2, data2, data2);
+    
+    data.s64 = data1.s64;//// Khoa
   }
+  //// Khoa
+  unsigned char * tBuffer = new unsigned char[size];
+  uint16_t *dataBuffer = new uint16_t[size/2];
+  mem->read(addr, size, tBuffer);
+  memcpy((void*)dataBuffer, (void*)tBuffer, size); 
+  std::ostringstream strStream;  
+  for (unsigned idx = 0; idx < (size/2); idx++) { 
+    strStream << std::setfill('0') <<  std::hex << std::setw(4) << dataBuffer[idx];
+  }
+  std::string bufferData = strStream.str();
+  
+  delete []dataBuffer;
+  delete []tBuffer;
+  ////
+  
   thread->m_last_effective_address = addr;
   thread->m_last_memory_space = space;
+
+
+
+  // //Khoa, 2022/06/
+int smid = thread->get_hw_sid();
+if (smid == 0) {
+
+  // FILE *resOutFile_ = fopen("testLdExec_.csv", "a");  
+
+  // // fprintf(resOutFile_, 
+  // //   "%u,%s,%llu,%llu,%u__,%u,%u,0x%08llx,%d,%d,%d,%d,%u,%llu,0x%08llx,%u,%d,0x%08llx\n", 
+  // //   pI->get_uid(),
+  // //   inst_str,
+  // //   thread->get_gpu()->gpu_sim_cycle, 
+  // //   thread->get_gpu()->gpu_tot_sim_cycle,
+  // //   thread->get_hw_sid(),
+  // //   pI->warp_id(),
+  // //   pI->dynamic_warp_id(), 
+  // //   pI->pc,
+  // //   pI->op,
+  // //   pI->space,
+  // //   pI->data_size,
+  // //   pI->latency,
+  // //   pI->get_schd_id(),
+  // //   pI->issue_cycle,
+  // //   addr,
+  // //   size,
+  // //   type,
+  // //   generic_to_global(addr)
+  // // );
+
+  // fprintf(resOutFile_, 
+  //   ",%llu,0x%08llx,%s_%d,%llu,%llu,%lld,sp_%d,%u,%d,%d,0x%08llx,0x%08llx,%u,%u,0x%llx,0x%s\n", 
+  //     pI->get_uid(),
+  //     pI->pc,
+  //     inst_str,
+  //     pI->op,
+  //     thread->get_gpu()->gpu_sim_cycle, 
+  //     thread->get_gpu()->gpu_tot_sim_cycle,
+  //     pI->issue_cycle,
+  //     pI->space,
+  //     pI->data_size,
+  //     pI->latency,
+  //     pI->get_schd_id(),
+  //     addr,
+  //     generic_to_global(addr),
+  //     // *((new_addr_type *)mem_txn_addr)
+  //     size,
+  //     vector_spec,
+  //     data.s64,
+  //     bufferData.c_str()
+  // );
+
+  // fclose(resOutFile_); ////
+
+  // std::stringstream mSs;
+  // time_t mTimeStampt = time(NULL);
+  // mSs << mTimeStampt;
+  // // std::string strTimeStampt = mSs.str(); 
+  // FILE *resOutFile_time = fopen("testTimeTrace_.csv", "a");
+  // fprintf(resOutFile_time, 
+  //   "%s,%llu,0x%08llx,ld_exec,%llu,%llu,_,0x%08llx,_,0x%08llx,%d,%u,%d\n", 
+  //   mSs.str().c_str(),
+  //   pI->get_uid(),
+  //   pI->pc,
+  //   thread->get_gpu()->gpu_sim_cycle, 
+  //   thread->get_gpu()->gpu_tot_sim_cycle,
+  //   addr,
+  //   generic_to_global(addr),
+  //   // *((new_addr_type *)mem_txn_addr)
+  //   pI->space,
+  //   pI->data_size,
+  //   pI->latency
+  // );
+  // fclose(resOutFile_time);
+} //// smid == 0
+
+
 }
 
 void ld_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
-  ld_exec(pI, thread);
+  ld_exec(pI, thread, "ld");
 }
 void ldu_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
-  ld_exec(pI, thread);
+  ld_exec(pI, thread, "ldu");
 }
 
 void mma_st_impl(const ptx_instruction *pI, core_t *core, warp_inst_t &inst) {
@@ -3747,7 +3912,99 @@ void mma_ld_impl(const ptx_instruction *pI, core_t *core, warp_inst_t &inst) {
 
     // thread->m_last_effective_address = addr;
     // thread->m_last_memory_space = space;
+
+
+// //Khoa, 2022/06/15
+
+if (smid == 0) {
+// //
+// // if (thrd == 0){
+//   // unsigned char * tBuffer = new unsigned char[2];
+//   // if (mfMemSpace == global_space) {
+//   //     mem->read(fetch_addr, 2, tBuffer);
+//   // }
+//   // tBuffer[32] = '\0';
+// // }
+// //
+
+//   FILE *resOutFile_ = fopen("testMmaLd_.csv", "a");  
+
+//   // fprintf(resOutFile_, "%u,mma_ld,%llu,%llu,%u__,%u,%u,0x%08llx,%u,0x%08llx,%u,%u,%d,%u,%u,0x%08llx,0x%08llx,%u\n", 
+//   //     inst.get_uid(),
+//   //     core->get_gpu()->gpu_sim_cycle, 
+//   //     core->get_gpu()->gpu_tot_sim_cycle,
+//   //     smid,
+//   //     tid / (core->get_warp_size()),
+//   //     inst.dynamic_warp_id(),
+//   //     inst.pc,
+//   //     thrd,
+//   //     addr,
+//   //     stride,
+//   //     size,
+//   //     type,
+//   //     wmma_type,
+//   //     wmma_layout,
+//   //     new_addr,
+//   //     generic_to_global(fetch_addr),
+//   //     // *((new_addr_type *)mem_txn_addr)
+//   //     data[0].s64
+//   // );
+  
+//   fprintf(resOutFile_, 
+//     "%llu,mma_ld,%llu,%llu,%u,0x%08llx,0x%08llx,0x%08llx,%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", 
+//       inst.get_uid(),
+//       core->get_gpu()->gpu_sim_cycle, 
+//       core->get_gpu()->gpu_tot_sim_cycle,
+//       thrd,
+//       addr,
+//       new_addr,
+//       generic_to_global(fetch_addr),
+//       // *((new_addr_type *)mem_txn_addr)
+//       data[0].s64,
+//       data[1].s64,
+//       data[2].s64,
+//       data[3].s64,
+//       data[4].s64,
+//       data[5].s64,
+//       data[6].s64,
+//       data[7].s64,
+//       data[8].s64,
+//       data[9].s64,
+//       data[10].s64,
+//       data[11].s64,
+//       data[12].s64,
+//       data[13].s64,
+//       data[14].s64,
+//       data[15].s64
+//   );
+
+//   fclose(resOutFile_); //
+
+//   std::stringstream mSs;
+//   time_t mTimeStampt = time(NULL);
+//   mSs << mTimeStampt;
+//   // std::string strTimeStampt = mSs.str(); 
+//   FILE *resOutFile_time = fopen("testTimeTrace_.csv", "a");
+//   fprintf(resOutFile_time, 
+//     "%s,%llu,0x%08llx,mma_ld,%llu,%llu,%u,0x%08llx,0x%08llx,0x%08llx\n", 
+//     mSs.str().c_str(),
+//     inst.get_uid(),
+//     inst.pc,
+//     core->get_gpu()->gpu_sim_cycle, 
+//     core->get_gpu()->gpu_tot_sim_cycle,
+//     thrd,
+//     addr,
+//     new_addr,
+//     generic_to_global(fetch_addr)
+//     // *((new_addr_type *)mem_txn_addr)
+//   );
+//   fclose(resOutFile_time);
+
+} // smid == 0
+
   }
+
+
 }
 
 void lg2_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
@@ -5793,7 +6050,34 @@ void st_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   }
   thread->m_last_effective_address = addr;
   thread->m_last_memory_space = space;
+
+// Khoa
+// unsigned smid = thread->get_hw_sid();
+// if (smid == 0) {
+//   std::stringstream mSs;
+//   time_t mTimeStampt = time(NULL);
+//   mSs << mTimeStampt;
+//   // std::string strTimeStampt = mSs.str(); 
+//   FILE *resOutFile_time = fopen("testTimeTrace_.csv", "a");
+//   fprintf(resOutFile_time, 
+//     "%s,%llu,0x%08llx,st_imp,%llu,%llu,_,0x%08llx,_,0x%08llx,%d,%u,%d\n", 
+//     mSs.str().c_str(),
+//     pI->get_uid(),
+//     pI->pc,
+//     thread->get_gpu()->gpu_sim_cycle, 
+//     thread->get_gpu()->gpu_tot_sim_cycle,
+//     addr,
+//     generic_to_global(addr),
+//     // *((new_addr_type *)mem_txn_addr)
+//     pI->space,
+//     pI->data_size,
+//     pI->latency
+//   );
+//   fclose(resOutFile_time);
+// }
+//
 }
+
 
 void sub_impl(const ptx_instruction *pI, ptx_thread_info *thread) {
   ptx_reg_t data;

@@ -162,7 +162,7 @@ void shader_core_ctx::create_front_pipeline() {
 void shader_core_ctx::create_schedulers() {
   m_scoreboard = new Scoreboard(m_sid, m_config->max_warps_per_shader, m_gpu);
 
-  // scedulers
+  // schedulers
   // must currently occur after all inputs have been initialized.
   std::string sched_config = m_config->gpgpu_scheduler_string;
   const concrete_scheduler scheduler =
@@ -984,9 +984,20 @@ void shader_core_ctx::fetch() {
 }
 
 void exec_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
+  if ( (inst.op == LOAD_OP) /* || (inst.op == STORE_OP) */ ) {
+    inst.comMemOp = 0;
+    // inst.generate_mem_accesses(m_gpu->gpu_sim_cycle, m_gpu->gpu_tot_sim_cycle, m_sid, m_tpc);
+    // execute_warp_inst_t(inst);
+  } //else if (inst.is_load() || inst.is_store()) {
+  //   execute_warp_inst_t(inst);
+  //   inst.generate_mem_accesses(m_gpu->gpu_sim_cycle, m_gpu->gpu_tot_sim_cycle, m_sid, m_tpc);
+  // } else {
+  //   execute_warp_inst_t(inst);
+  // }
   execute_warp_inst_t(inst);
   if (inst.is_load() || inst.is_store()) {
-    inst.generate_mem_accesses();
+    inst.generate_mem_accesses(m_gpu->gpu_sim_cycle, m_gpu->gpu_tot_sim_cycle, m_sid, m_tpc);
+    // inst.generate_mem_accesses();
     // inst.print_m_accessq();
   }
 }
@@ -1711,11 +1722,39 @@ void ldst_unit::get_L1T_sub_stats(struct cache_sub_stats &css) const {
   if (m_L1T) m_L1T->get_sub_stats(css);
 }
 
-void shader_core_ctx::warp_inst_complete(const warp_inst_t &inst) {
+// void shader_core_ctx::warp_inst_complete(const warp_inst_t &inst) {
+void shader_core_ctx::warp_inst_complete(warp_inst_t &inst) {
 #if 0
       printf("[warp_inst_complete] uid=%u core=%u warp=%u pc=%#x @ time=%llu \n",
              inst.get_uid(), m_sid, inst.warp_id(), inst.pc,  m_gpu->gpu_tot_sim_cycle +  m_gpu->gpu_sim_cycle);
 #endif
+
+// Khoa
+if (inst.comMemOp == 2 /* inst.op == LOAD_OP || inst.op == STORE_OP */ ) {
+  // FILE *resOutFile_r2 = fopen("testInstComR2_.csv", "a");
+    
+  // fprintf(resOutFile_r2, "%u,0x%08llx,r2,%llu,%llu,%llu,%u__%u,%d||,%d,%d,%d,%u,_,%#010llx,%u\n",
+  //   inst.get_uid(),
+  //   inst.pc,
+  //   m_gpu->gpu_sim_cycle,
+  //   m_gpu->gpu_tot_sim_cycle,
+  //   inst.issue_cycle,
+  //   m_sid, 
+  //   m_tpc, 
+  //   inst.op,
+  //   inst.space,
+  //   inst.data_size,
+  //   inst.latency,
+  //   inst.get_schd_id(),
+  //   //inst.m_scheduler_id
+  //   inst.get_addr(0),
+  //   inst.comMemOp
+  //   );
+  // fclose(resOutFile_r2);
+
+  execute_warp_inst_t(inst);
+}
+//
 
   if (inst.op_pipe == SP__OP)
     m_stats->m_num_sp_committed[m_sid]++;
@@ -1732,6 +1771,31 @@ void shader_core_ctx::warp_inst_complete(const warp_inst_t &inst) {
   m_stats->m_num_sim_winsn[m_sid]++;
   m_gpu->gpu_sim_insn += inst.active_count();
   inst.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+
+//// Khoa, 2022/07
+  // FILE *resOutFile = fopen("testInstCompleted_.csv", "a");
+    
+  // fprintf(resOutFile, "%u,%llu,%llu,%u__%u,%u,%u,0x%08llx,%d||,%d,%d,%d,%u,%llu,_,%#010llx,%u\n",
+  //   inst.get_uid(),
+  //   m_gpu->gpu_sim_cycle,
+  //   m_gpu->gpu_tot_sim_cycle,
+  //   m_sid, 
+  //   m_tpc, 
+  //   inst.warp_id(),
+  //   inst.dynamic_warp_id(),
+  //   inst.pc,
+  //   inst.op,
+  //   inst.space,
+  //   inst.data_size,
+  //   inst.latency,
+  //   inst.get_schd_id(),
+  //   //inst.m_scheduler_id
+  //   inst.issue_cycle,
+  //   inst.get_addr(0),
+  //   inst.comMemOp
+  //   );
+  // fclose(resOutFile);
+////
 }
 
 void shader_core_ctx::writeback() {
@@ -1945,7 +2009,8 @@ void ldst_unit::L1_latency_queue_cycle() {
                     mf_next->get_inst().out[r]);
                 m_scoreboard->releaseRegister(mf_next->get_inst().warp_id(),
                                               mf_next->get_inst().out[r]);
-                m_core->warp_inst_complete(mf_next->get_inst());
+                // m_core->warp_inst_complete(mf_next->get_inst());
+                m_core->warp_inst_complete(*(mf_next->get_w_inst()));
               }
             }
         }
@@ -2107,9 +2172,25 @@ void ldst_unit::invalidate() {
   m_L1D->invalidate();
 }
 
+// Khoa
+// For C++14 or older
+unsigned simd_function_unit::total_fu_count {0}; //
+
 simd_function_unit::simd_function_unit(const shader_core_config *config) {
   m_config = config;
   m_dispatch_reg = new warp_inst_t(config);
+
+
+  // Khoa, 2022/02/07
+  fu_last_active_tot_cycle = 0;
+  fu_last_active_cycle = 0;
+  fu_last_idle_tot_cycle = 0;
+  fu_last_idle_cycle = 0;
+  idle_toggle = true;
+
+  fu_id = total_fu_count;
+  total_fu_count++;
+
 }
 
 sfu::sfu(register_set *result_port, const shader_core_config *config,
@@ -2278,9 +2359,59 @@ pipelined_simd_unit::pipelined_simd_unit(register_set *result_port,
     m_pipeline_reg[i] = new warp_inst_t(config);
   m_core = core;
   active_insts_in_pipeline = 0;
+
+
+
+  // Khoa
+  if (total_fu_count) {
+    total_fu_count++;
+  }
+  else {
+    total_fu_count = 1;
+  }
+  fu_id = total_fu_count-1;
+
 }
 
 void pipelined_simd_unit::cycle() {
+  
+  
+  // Khoa, 2022/07/06
+  bool cur_idle_status = check_idle();
+  int idle_time;
+  int occupied_time;
+  if (cur_idle_status != idle_toggle) {
+    if (cur_idle_status) {
+      fu_last_active_tot_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
+      fu_last_active_cycle = m_core->get_gpu()->gpu_sim_cycle - 1;
+      occupied_time = (fu_last_active_cycle + fu_last_active_tot_cycle) - (fu_last_idle_cycle + fu_last_idle_tot_cycle);
+    } else {
+      fu_last_idle_tot_cycle = m_core->get_gpu()->gpu_tot_sim_cycle;
+      fu_last_idle_cycle = m_core->get_gpu()->gpu_sim_cycle - 1;
+      idle_time = (fu_last_idle_cycle + fu_last_idle_tot_cycle) - (fu_last_active_cycle + fu_last_active_tot_cycle);
+    }
+
+    idle_toggle = cur_idle_status;
+
+    ////
+    // std::string filePath = "testIdle_" + m_name + "_.csv";
+    // FILE *resOutFile = fopen(filePath.c_str(), "a"); 
+    // fprintf(resOutFile, ",%llu,%llu,%u__,%u,%s,%llu\n", 
+    //   m_core->get_gpu()->gpu_sim_cycle,
+    //   m_core->get_gpu()->gpu_tot_sim_cycle,
+    //   m_core->m_sid, 
+    //   fu_id,
+    //   cur_idle_status?"idle":"busy",
+    //   cur_idle_status? occupied_time:idle_time
+    //   );
+    // fclose(resOutFile);
+    ////
+  }
+
+  
+
+
+
   if (!m_pipeline_reg[0]->empty()) {
     m_result_port->move_in(m_pipeline_reg[0]);
     assert(active_insts_in_pipeline > 0);
@@ -2473,7 +2604,8 @@ void ldst_unit::writeback() {
       case 1:  // texture response
         if (m_L1T->access_ready()) {
           mem_fetch *mf = m_L1T->next_access();
-          m_next_wb = mf->get_inst();
+          // m_next_wb = mf->get_inst();
+          m_next_wb = *(mf->get_w_inst()); // Khoa
           delete mf;
           serviced_client = next_client;
         }
@@ -2481,14 +2613,16 @@ void ldst_unit::writeback() {
       case 2:  // const cache response
         if (m_L1C->access_ready()) {
           mem_fetch *mf = m_L1C->next_access();
-          m_next_wb = mf->get_inst();
+          // m_next_wb = mf->get_inst();
+          m_next_wb = *(mf->get_w_inst()); // Khoa
           delete mf;
           serviced_client = next_client;
         }
         break;
       case 3:  // global/local
         if (m_next_global) {
-          m_next_wb = m_next_global->get_inst();
+          // m_next_wb = m_next_global->get_inst();
+          m_next_wb = *(m_next_global->get_w_inst()); // Khoa
           if (m_next_global->isatomic()) {
             m_core->decrement_atomic_count(
                 m_next_global->get_wid(),
@@ -2502,7 +2636,8 @@ void ldst_unit::writeback() {
       case 4:
         if (m_L1D && m_L1D->access_ready()) {
           mem_fetch *mf = m_L1D->next_access();
-          m_next_wb = mf->get_inst();
+          // m_next_wb = mf->get_inst();
+          m_next_wb = *(mf->get_w_inst());
           delete mf;
           serviced_client = next_client;
         }
@@ -3265,6 +3400,20 @@ unsigned int shader_core_config::max_cta(const kernel_info_t &k) const {
     // For more info about adaptive cache, see
     // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
     unsigned total_shmed = kernel_info->smem * result;
+
+
+// Khoa, 2022/07
+// FILE *resOutFile = fopen("shaderMaxCTATest_.csv", "a");
+
+// fprintf(resOutFile, "%u,%u,%u,%u\n",
+// kernel_info->smem,
+// total_shmed,
+// smem_latency,
+// gpgpu_shmem_size
+// );
+// fclose(resOutFile);
+
+
     assert(total_shmed >= 0 && total_shmed <= gpgpu_shmem_size);
     // assert(gpgpu_shmem_size == 98304); //Volta has 96 KB shared
     // assert(m_L1D_config.get_nset() == 4);  //Volta L1 has four sets
@@ -4129,6 +4278,12 @@ simt_core_cluster::simt_core_cluster(class gpgpu_sim *gpu, unsigned cluster_id,
   m_mem_config = mem_config;
 }
 
+unsigned simt_core_cluster::peerReplyReceivedCount1 = 0; // Khoa
+unsigned simt_core_cluster::peerReplyReceivedCount2 = 0;
+unsigned simt_core_cluster::peerReplySentCount = 0;
+unsigned simt_core_cluster::peerRequestReceivedCount = 0; // 
+
+
 void simt_core_cluster::core_cycle() {
   for (std::list<unsigned>::iterator it = m_core_sim_order.begin();
        it != m_core_sim_order.end(); ++it) {
@@ -4239,8 +4394,11 @@ void simt_core_cluster::cache_invalidate() {
 
 bool simt_core_cluster::icnt_injection_buffer_full(unsigned size, bool write) {
   unsigned request_size = size;
-  if (!write) request_size = READ_PACKET_SIZE;
-  return !::icnt_has_buffer(m_cluster_id, request_size);
+  if (!write) {
+    request_size = READ_PACKET_SIZE;
+  }
+  // return !::icnt_has_buffer(m_cluster_id, request_size);
+  return !::icnt_has_buffer(m_cluster_id, request_size, 0); // Khoa
 }
 
 void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
@@ -4301,15 +4459,94 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   unsigned destination = mf->get_sub_partition_id();
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-  if (!mf->get_is_write() && !mf->isatomic())
-    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf,
-                mf->get_ctrl_size());
-  else
-    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf,
-                mf->size());
+  if (!mf->get_is_write() && !mf->isatomic()) {
+    //// read request
+    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf, mf->get_ctrl_size());
+  }
+  else {
+    //// write_request
+    ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf, mf->size());
+  }
+    
+
+
+// Khoa, 2022/07
+  // FILE *resOutFile_ = fopen("testClusterID_.csv", "a");
+  // fprintf(resOutFile_, ",%llu,%llu,__%u,%u\n", 
+  //   m_gpu->gpu_sim_cycle,
+  //   m_gpu->gpu_tot_sim_cycle,
+  //   m_cluster_id,
+  //   m_config->mem2device(destination)
+  //   );
+  // fclose(resOutFile_); 
+
+
 }
 
 void simt_core_cluster::icnt_cycle() {
+  // Khoa, 2022/07/
+  bool bufferIsFull = false;
+  if (!m_peer_request_fifo.empty()) { // prioritize peer request
+    mem_fetch *mfr = m_peer_request_fifo.front();
+    unsigned response_size = mfr->size(); // since it only respond to read request
+    if (::icnt_has_buffer(m_cluster_id, response_size, 1)) {
+      mfr->set_reply();
+      mfr->set_return_timestamp(m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      mfr->set_status(IN_ICNT_TO_SHADER, 
+                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      mfr->m_ptpc = (int)m_cluster_id;
+      ::icnt_push(m_cluster_id, mfr->get_tpc(), mfr, response_size);
+      m_peer_request_fifo.pop_front();
+      
+      peerReplySentCount++;
+      
+      bufferIsFull = false;
+
+// FILE *resOutFile_bufferNFull = fopen("testIcntCycleClusterBufferNOTFull_.csv", "a");  
+// fprintf(resOutFile_bufferNFull, "%llu,%llu,__%u,%u,%u | %u,%u\n", 
+//   m_gpu->gpu_sim_cycle,
+//   m_gpu->gpu_tot_sim_cycle,
+//   m_cluster_id,
+//   peerReplySentCount,
+//   peerReplyReceivedCount1,
+//   peerReplyReceivedCount2,
+//   peerRequestReceivedCount
+//   );
+// fclose(resOutFile_bufferNFull);
+
+    } else {// else // skip
+
+      bufferIsFull = true;
+
+      // FILE *resOutFile_bufferFull = fopen("testIcntCycleClusterBufferFull_.csv", "a");  
+      // fprintf(resOutFile_bufferFull, "%llu,%llu,__%u,%u,%u | %u,%u\n", 
+      //   m_gpu->gpu_sim_cycle,
+      //   m_gpu->gpu_tot_sim_cycle,
+      //   m_cluster_id,
+      //   peerReplySentCount,
+      //   peerReplyReceivedCount1,
+      //   peerReplyReceivedCount2,
+      //   peerRequestReceivedCount
+      //   );
+      // fclose(resOutFile_bufferFull);
+
+    }
+  }
+
+  if (!m_response_buffer_fifo.empty() && !response_queue_full()) {
+    mem_fetch *mft = m_response_buffer_fifo.front();
+    m_response_buffer_fifo.pop_front();
+
+    unsigned int packet_size = (mft->get_is_write()) ? mft->get_ctrl_size() : mft->size();
+    m_stats->m_incoming_traffic_stats->record_traffic(mft, packet_size);
+    mft->set_status(IN_CLUSTER_TO_SHADER_QUEUE,
+                    m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+    m_response_fifo.push_back(mft);
+    m_stats->n_mem_to_simt[m_cluster_id] += mft->get_num_flits(false);
+  } //
+
+
+
   if (!m_response_fifo.empty()) {
     mem_fetch *mf = m_response_fifo.front();
     unsigned cid = m_config->sid_to_cid(mf->get_sid());
@@ -4328,24 +4565,155 @@ void simt_core_cluster::icnt_cycle() {
       }
     }
   }
-  if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
-    mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
-    if (!mf) return;
-    assert(mf->get_tpc() == m_cluster_id);
-    assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
+  // Khoa
+  // if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
+  //   mem_fetch *mf = (mem_fetch *)::icnt_pop(m_cluster_id);
+  //   if (!mf) return;
+  //   assert(mf->get_tpc() == m_cluster_id);
+  //   assert(mf->get_type() == READ_REPLY || mf->get_type() == WRITE_ACK);
 
-    // The packet size varies depending on the type of request:
-    // - For read request and atomic request, the packet contains the data
-    // - For write-ack, the packet only has control metadata
-    unsigned int packet_size =
-        (mf->get_is_write()) ? mf->get_ctrl_size() : mf->size();
-    m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
-    mf->set_status(IN_CLUSTER_TO_SHADER_QUEUE,
-                   m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-    // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
-    m_response_fifo.push_back(mf);
-    m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
+  //   // The packet size varies depending on the type of request:
+  //   // - For read request and atomic request, the packet contains the data
+  //   // - For write-ack, the packet only has control metadata
+  //   unsigned int packet_size =
+  //       (mf->get_is_write()) ? mf->get_ctrl_size() : mf->size();
+  //   m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
+  //   mf->set_status(IN_CLUSTER_TO_SHADER_QUEUE,
+  //                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+  //   // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
+  //   m_response_fifo.push_back(mf);
+  //   m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
+  // } //// original
+
+
+  //// Khoa, 2022/07
+  mem_fetch *mfx;
+  if (!bufferIsFull /*&& (m_gpu->gpu_sim_cycle % 2) != 0*/) {
+    //// first check request from peer
+    mfx = (mem_fetch *)::icnt_pop(m_cluster_id, 0, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle); // prioritize request subnet
+    
+    if (mfx) {
+      //// has request from peer
+      
+      //// debugging
+      // if (mfx->get_type() != READ_REQUEST) {
+      //   FILE* resOutFile_debugIcnt_ = fopen("testDebugIcnt_.csv", "a");
+      //   fprintf(resOutFile_debugIcnt_, 
+      //     "%llu,%llu,%u,%llu,%u,%u__%u,%u,0x%08llx\n",
+      //       m_gpu->gpu_sim_cycle,
+      //       m_gpu->gpu_tot_sim_cycle,
+      //       mfx->get_request_uid(),
+      //       mfx->get_timestamp(),
+      //       mfx->get_type(),
+      //       mfx->get_sid(),
+      //       mfx->get_tpc(),
+      //       mfx->get_sub_partition_id(),
+      //       mfx->get_addr()
+
+      //   );
+      //   fclose(resOutFile_debugIcnt_);
+      // }
+      // if (mfx->get_request_uid() == 49017) {
+      //   FILE * resOutFile_tracing = fopen("testPacketPop_.csv", "a");
+      //   fprintf(resOutFile_tracing, 
+      //     "%u,_ (%u)\n",
+      //       mfx->get_request_uid(),
+      //       m_cluster_id
+      //   );
+      //   fclose(resOutFile_tracing);
+      // }  
+      ////
+
+      // assert(mfx->get_type() == READ_REQUEST); // Khoa, 2023/02/05
+      mfx->set_reply();
+      m_peer_request_fifo.push_back(mfx);
+      m_stats->m_incoming_traffic_stats->record_traffic(mfx, mfx->get_ctrl_size());
+      mfx->set_status(IN_CLUSTER_TO_SHADER_QUEUE, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      peerRequestReceivedCount++;
+    }
+
+    //// then check response
+    mfx = (mem_fetch *)::icnt_pop(m_cluster_id, 1, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+    if (mfx) {
+      //// has response from peer/memory_part
+      assert(mfx->get_tpc() == m_cluster_id);
+      assert(mfx->get_type() == READ_REPLY || mfx->get_type() == WRITE_ACK);
+      if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
+      // The packet size varies depending on the type of request:
+      // - For read request and atomic request, the packet contains the data
+      // - For write-ack, the packet only has control metadata
+      unsigned int packet_size = (mfx->get_is_write()) ? mfx->get_ctrl_size() : mfx->size();
+      m_stats->m_incoming_traffic_stats->record_traffic(mfx, packet_size);
+      mfx->set_status(IN_CLUSTER_TO_SHADER_QUEUE, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
+      m_response_fifo.push_back(mfx);
+      m_stats->n_mem_to_simt[m_cluster_id] += mfx->get_num_flits(false);
+      if (mfx->m_ptpc != (-1)) {
+        peerReplyReceivedCount1++;
+      }
+      
+      } else {
+        m_response_buffer_fifo.push_back(mfx);
+        if (mfx->m_ptpc != (-1)) {
+          peerReplyReceivedCount2++;
+        }
+      }
+    } // else, no response
+  } else { 
+    //// buffer is full for request, process only response
+    mfx = (mem_fetch *)::icnt_pop(m_cluster_id, 1, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle); 
+    if (mfx) {
+      //// has response from either peer or memory_part
+      assert(mfx->get_tpc() == m_cluster_id);
+      assert(mfx->get_type() == READ_REPLY || mfx->get_type() == WRITE_ACK);
+      if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
+        // The packet size varies depending on the type of request:
+        // - For read request and atomic request, the packet contains the data
+        // - For write-ack, the packet only has control metadata
+        unsigned int packet_size = (mfx->get_is_write()) ? mfx->get_ctrl_size() : mfx->size();
+        m_stats->m_incoming_traffic_stats->record_traffic(mfx, packet_size);
+        mfx->set_status(IN_CLUSTER_TO_SHADER_QUEUE, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
+        m_response_fifo.push_back(mfx);
+        m_stats->n_mem_to_simt[m_cluster_id] += mfx->get_num_flits(false);
+        if (mfx->m_ptpc != (-1)) {
+          peerReplyReceivedCount1++;
+        }
+      } else {
+        m_response_buffer_fifo.push_back(mfx);
+        if (mfx->m_ptpc != (-1)) {
+          peerReplyReceivedCount2++;
+        }
+      }
+    } // else, no response
   }
+  ////
+////
+  // assert(mfx->get_tpc() == m_cluster_id);
+  // if (mfx->get_type() == READ_REQUEST) {
+  //   m_peer_request_fifo.push_back(mfx);
+  //   m_stats->m_incoming_traffic_stats->record_traffic(mfx, mfx->get_ctrl_size());
+
+  // } else if (mfx->get_type() == READ_REPLY || mfx->get_type() == WRITE_ACK) {
+  //   if (m_response_fifo.size() < m_config->n_simt_ejection_buffer_size) {
+  //   // The packet size varies depending on the type of request:
+  //   // - For read request and atomic request, the packet contains the data
+  //   // - For write-ack, the packet only has control metadata
+  //   unsigned int packet_size = (mfx->get_is_write()) ? mfx->get_ctrl_size() : mfx->size();
+  //   m_stats->m_incoming_traffic_stats->record_traffic(mfx, packet_size);
+  //   mfx->set_status(IN_CLUSTER_TO_SHADER_QUEUE,
+  //                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+  //   // m_memory_stats->memlatstat_read_done(mf,m_shader_config->max_warps_per_shader);
+  //   m_response_fifo.push_back(mfx);
+  //   m_stats->n_mem_to_simt[m_cluster_id] += mfx->get_num_flits(false);
+  //   } else {
+  //     m_response_buffer_fifo.push_back(mfx);
+  //   }
+  // } else { // wrong mf type, we have some icnt errors, try to ignore and skip it
+  //   return; 
+  // }
+//////
+
 }
 
 void simt_core_cluster::get_pdom_stack_top_info(unsigned sid, unsigned tid,

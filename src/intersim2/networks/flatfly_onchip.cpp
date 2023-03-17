@@ -318,13 +318,13 @@ double FlatFlyOnChip::Capacity( ) const
 void FlatFlyOnChip::RegisterRoutingFunctions(){
 
   
-  gRoutingFunctionMap["ran_min_flatfly"] = &min_flatfly;
-  gRoutingFunctionMap["adaptive_xyyx_flatfly"] = &adaptive_xyyx_flatfly;
-  gRoutingFunctionMap["xyyx_flatfly"] = &xyyx_flatfly;
-  gRoutingFunctionMap["valiant_flatfly"] = &valiant_flatfly;
-  gRoutingFunctionMap["ugal_flatfly"] = &ugal_flatfly_onchip;
-  gRoutingFunctionMap["ugal_pni_flatfly"] = &ugal_pni_flatfly_onchip;
-  gRoutingFunctionMap["ugal_xyyx_flatfly"] = &ugal_xyyx_flatfly_onchip;
+  // gRoutingFunctionMap["ran_min_flatfly"] = &min_flatfly;
+  // gRoutingFunctionMap["adaptive_xyyx_flatfly"] = &adaptive_xyyx_flatfly;
+  // gRoutingFunctionMap["xyyx_flatfly"] = &xyyx_flatfly;
+  // gRoutingFunctionMap["valiant_flatfly"] = &valiant_flatfly;
+  // gRoutingFunctionMap["ugal_flatfly"] = &ugal_flatfly_onchip;
+  // gRoutingFunctionMap["ugal_pni_flatfly"] = &ugal_pni_flatfly_onchip;
+  // gRoutingFunctionMap["ugal_xyyx_flatfly"] = &ugal_xyyx_flatfly_onchip;
 
 }
 

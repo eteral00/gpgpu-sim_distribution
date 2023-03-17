@@ -203,6 +203,8 @@ gpgpu_t::gpgpu_t(const gpgpu_functional_sim_config &config, gpgpu_context *ctx)
 
   gpu_sim_cycle = 0;
   gpu_tot_sim_cycle = 0;
+
+  totalReadRequestWaitTimeInIcntL2Queue = 0; // Khoa, 2023/01
 }
 
 address_type line_size_based_tag_func(new_addr_type address,
@@ -278,7 +280,8 @@ void warp_inst_t::broadcast_barrier_reduction(
   }
 }
 
-void warp_inst_t::generate_mem_accesses() {
+void warp_inst_t::generate_mem_accesses(unsigned long long gpu_sim_cycle, unsigned long long gpu_tot_sim_cycle, unsigned smid, unsigned tpcid) {
+// void warp_inst_t::generate_mem_accesses() {
   if (empty() || op == MEMORY_BARRIER_OP || m_mem_accesses_created) return;
   if (!((op == LOAD_OP) || (op == TENSOR_CORE_LOAD_OP) || (op == STORE_OP) ||
         (op == TENSOR_CORE_STORE_OP)))
@@ -288,6 +291,25 @@ void warp_inst_t::generate_mem_accesses() {
   const size_t starting_queue_size = m_accessq.size();
 
   assert(is_load() || is_store());
+
+// Khoa
+  // FILE *resOutFile_tV = fopen("testThreadValid_.csv", "a");
+  
+  // fprintf(resOutFile_tV, 
+  //   ",%llu,0x%08llx,g_mA,%llu,%llu,%llu,%u_%u,%u||,%u\n", 
+  //   get_uid(),
+  //   pc,
+  //   gpu_sim_cycle, 
+  //   gpu_tot_sim_cycle,
+  //   issue_cycle,
+  //   smid,
+  //   tpcid,
+  //   op,
+  //   comMemOp
+  // );
+
+  // fclose(resOutFile_tV); 
+//
   assert(m_per_scalar_thread_valid);  // need address information per thread
 
   bool is_write = is_store();
@@ -325,8 +347,12 @@ void warp_inst_t::generate_mem_accesses() {
     case sstarr_space: {
       unsigned subwarp_size = m_config->warp_size / m_config->mem_warp_parts;
       unsigned total_accesses = 0;
-      for (unsigned subwarp = 0; subwarp < m_config->mem_warp_parts;
-           subwarp++) {
+
+      unsigned max_bank_accesses = 0; //// Khoa, 2022/07/
+
+      for (unsigned subwarp = 0; 
+            subwarp < m_config->mem_warp_parts; 
+            subwarp++) {
         // data structures used per part warp
         std::map<unsigned, std::map<new_addr_type, unsigned> >
             bank_accs;  // bank -> word address -> access count
@@ -368,7 +394,7 @@ void warp_inst_t::generate_mem_accesses() {
 
           // step 3: figure out max bank accesses performed, taking account of
           // broadcast case
-          unsigned max_bank_accesses = 0;
+          max_bank_accesses = 0; ////
           for (b = bank_accs.begin(); b != bank_accs.end(); b++) {
             unsigned bank_accesses = 0;
             std::map<new_addr_type, unsigned> &access_set = b->second;
@@ -392,10 +418,11 @@ void warp_inst_t::generate_mem_accesses() {
 
           // step 4: accumulate
           total_accesses += max_bank_accesses;
+
         } else {
           // step 2: look for the bank with the maximum number of access to
           // different words
-          unsigned max_bank_accesses = 0;
+          max_bank_accesses = 0; ////
           std::map<unsigned, std::map<new_addr_type, unsigned> >::iterator b;
           for (b = bank_accs.begin(); b != bank_accs.end(); b++) {
             max_bank_accesses =
@@ -405,14 +432,40 @@ void warp_inst_t::generate_mem_accesses() {
           // step 3: accumulate
           total_accesses += max_bank_accesses;
         }
+
+
+        
+// Khoa, 2022/07/
+  // FILE *resOutFile_3 = fopen("genMemTest_shmem_.csv", "a");
+  // fprintf(resOutFile_3, "%u,%llu,%llu,%llu,%u__%u,%u||,%u,%u,%u,%u,%u\n", 
+  //   get_uid(),
+  //   gpu_sim_cycle,
+  //   gpu_tot_sim_cycle,
+  //   issue_cycle,
+  //   smid,
+  //   tpcid,
+  //   op,
+  //   warp_id(),
+  //   dynamic_warp_id(),
+  //   get_schd_id(),
+  //   max_bank_accesses,
+  //   total_accesses
+  //   //get_addr(0)
+  //   );
+  // fclose(resOutFile_3);
+
+
+
       }
       assert(total_accesses > 0 && total_accesses <= m_config->warp_size);
       cycles = total_accesses;  // shared memory conflicts modeled as larger
                                 // initiation interval
       m_config->gpgpu_ctx->stats->ptx_file_line_stats_add_smem_bank_conflict(
           pc, total_accesses);
+
       break;
-    }
+    }//
+      //break;
 
     case tex_space:
       cache_block_size = m_config->gpgpu_cache_texl1_linesize;
@@ -440,6 +493,14 @@ void warp_inst_t::generate_mem_accesses() {
   }
 
   if (cache_block_size) {
+    // FILE* resOutFile_cacheBlock = fopen("testCacheBlockSize_.csv", "a");
+    // fprintf(resOutFile_cacheBlock, 
+    //   "%u,%u\n",
+    //     space.get_type(),
+    //     cache_block_size
+    // );
+    // fclose(resOutFile_cacheBlock);
+
     assert(m_accessq.empty());
     mem_access_byte_mask_t byte_mask;
     std::map<new_addr_type, active_mask_t>
@@ -1178,12 +1239,16 @@ void simt_stack::update(simt_mask_t &thread_done, addr_vector_t &next_pc,
 void core_t::execute_warp_inst_t(warp_inst_t &inst, unsigned warpId) {
   for (unsigned t = 0; t < m_warp_size; t++) {
     if (inst.active(t)) {
-      if (warpId == (unsigned(-1))) warpId = inst.warp_id();
-      unsigned tid = m_warp_size * warpId + t;
-      m_thread[tid]->ptx_exec_inst(inst, t);
+      // 
+      // if ( (inst.comMemOp > 0) || (inst.op != LOAD_OP && inst.op != STORE_OP) && ) {
+        if (warpId == (unsigned(-1))) warpId = inst.warp_id();
+        unsigned tid = m_warp_size * warpId + t;
+        m_thread[tid]->ptx_exec_inst(inst, t);
 
-      // virtual function
-      checkExecutionStatusAndUpdate(inst, t, tid);
+        // virtual function
+        checkExecutionStatusAndUpdate(inst, t, tid);
+      // }
+      //
     }
   }
 }
@@ -1239,4 +1304,58 @@ void core_t::initilizeSIMTStack(unsigned warp_count, unsigned warp_size) {
 void core_t::get_pdom_stack_top_info(unsigned warpId, unsigned *pc,
                                      unsigned *rpc) const {
   m_simt_stack[warpId]->get_pdom_stack_top_info(pc, rpc);
+}
+
+
+
+
+
+// Khoa
+bool warp_inst_t::decode_space(memory_space_t &space, memory_space *&mem, addr_t addr) {
+  bool isSuccess = true;
+    switch (space.get_type()) {
+      case global_space:
+        mem = m_config->gpgpu_ctx->the_gpgpusim->g_the_gpu->get_global_memory();
+        break;
+      case tex_space:
+        mem = m_config->gpgpu_ctx->the_gpgpusim->g_the_gpu->get_tex_memory();
+        break;
+      case surf_space:
+        mem = m_config->gpgpu_ctx->the_gpgpusim->g_the_gpu->get_surf_memory();
+        break;
+      case const_space:
+        mem = m_config->gpgpu_ctx->the_gpgpusim->g_the_gpu->get_global_memory();
+        break;
+      case generic_space:
+        // if (thread->get_ptx_version().ver() >= 2.0) {
+          // convert generic address to memory space address
+          space = whichspace(addr);
+          switch (space.get_type()) {
+            case global_space:
+              mem = m_config->gpgpu_ctx->the_gpgpusim->g_the_gpu->get_global_memory();
+              break;
+            case local_space:
+            case shared_space:
+            default:
+              isSuccess = false;
+          }
+        // } else {
+          // abort();
+        // }
+        break;
+        
+      case param_space_local:
+      case local_space:
+      case shared_space:
+      case sstarr_space:
+      case param_space_kernel:
+      case param_space_unclassified:
+      case undefined_space:
+      default:
+        isSuccess = false;
+        break;
+        
+    }
+
+  return isSuccess;
 }

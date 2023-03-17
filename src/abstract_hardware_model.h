@@ -446,7 +446,7 @@ class simt_stack {
 // in .ptx file)
 const unsigned long long GLOBAL_HEAP_START = 0xC0000000;
 // Volta max shmem size is 96kB
-const unsigned long long SHARED_MEM_SIZE_MAX = 96 * (1 << 10);
+const unsigned long long SHARED_MEM_SIZE_MAX = 96 * (1 << 10); // Khoa, original = 96
 // Volta max local mem is 16kB
 const unsigned long long LOCAL_MEM_SIZE_MAX = 1 << 14;
 // Volta Titan V has 80 SMs
@@ -635,6 +635,10 @@ class gpgpu_t {
 
   virtual ~gpgpu_t() {}
 
+
+  long long unsigned totalReadRequestWaitTimeInIcntL2Queue; // Khoa, 2023/01
+
+  
  protected:
   const gpgpu_functional_sim_config &m_function_model_config;
   FILE *ptx_inst_debug_file;
@@ -917,6 +921,8 @@ class inst_t {
       arch_reg.dst[i] = -1;
     }
     isize = 0;
+    
+    comMemOp = 1; // Khoa
   }
   bool valid() const { return m_decoded; }
   virtual void print_insn(FILE *fp) const {
@@ -982,6 +988,10 @@ class inst_t {
   memory_space_t space;
   cache_operator_type cache_op;
 
+
+  unsigned comMemOp; // Khoa
+
+
  protected:
   bool m_decoded;
   virtual void pre_decode() {}
@@ -1028,13 +1038,40 @@ class warp_inst_t : public inst_t {
       const;  // stat collection: called when the instruction is completed
 
   void set_addr(unsigned n, new_addr_type addr) {
+    // if (is_load() || is_store()) {
+    //   FILE *resOutFile_tV = fopen("testThreadValid_.csv", "a");
+    //   fprintf(resOutFile_tV, 
+    //     ",%llu,0x%08llx,set_addr,_,_,%llu,_,%u||,%u\n", 
+    //     get_uid(),
+    //     pc,
+    //     issue_cycle,
+    //     op,
+    //     comMemOp
+    //   );
+    //   fclose(resOutFile_tV); 
+    // }
+
     if (!m_per_scalar_thread_valid) {
       m_per_scalar_thread.resize(m_config->warp_size);
       m_per_scalar_thread_valid = true;
     }
     m_per_scalar_thread[n].memreqaddr[0] = addr;
   }
+  
   void set_addr(unsigned n, new_addr_type *addr, unsigned num_addrs) {
+    // if (is_load() || is_store()) {
+    //   FILE *resOutFile_tV = fopen("testThreadValid_.csv", "a");
+    //   fprintf(resOutFile_tV, 
+    //     ",%llu,0x%08llx,set_addr,_,_,%llu,_,%u||,%u\n", 
+    //     get_uid(),
+    //     pc,
+    //     issue_cycle,
+    //     op,
+    //     comMemOp
+    //   );
+    //   fclose(resOutFile_tV); 
+    // }
+
     if (!m_per_scalar_thread_valid) {
       m_per_scalar_thread.resize(m_config->warp_size);
       m_per_scalar_thread_valid = true;
@@ -1043,6 +1080,7 @@ class warp_inst_t : public inst_t {
     for (unsigned i = 0; i < num_addrs; i++)
       m_per_scalar_thread[n].memreqaddr[i] = addr[i];
   }
+
   void print_m_accessq() {
     if (accessq_empty())
       return;
@@ -1056,6 +1094,7 @@ class warp_inst_t : public inst_t {
       }
     }
   }
+
   struct transaction_info {
     std::bitset<4> chunks;  // bitmask: 32-byte chunks accessed
     mem_access_byte_mask_t bytes;
@@ -1068,7 +1107,8 @@ class warp_inst_t : public inst_t {
     }
   };
 
-  void generate_mem_accesses();
+  void generate_mem_accesses(unsigned long long gpu_sim_cycle, unsigned long long gpu_tot_sim_cycle, unsigned smid, unsigned tpcid); 
+  // void generate_mem_accesses(); // Khoa
   void memory_coalescing_arch(bool is_write, mem_access_type access_type);
   void memory_coalescing_arch_atomic(bool is_write,
                                      mem_access_type access_type);
@@ -1083,6 +1123,19 @@ class warp_inst_t : public inst_t {
                                      class ptx_thread_info *),
                     const inst_t *inst, class ptx_thread_info *thread,
                     bool atomic) {
+    // if (is_load() || is_store()) {
+    //   FILE *resOutFile_tV = fopen("testThreadValid_.csv", "a");
+    //   fprintf(resOutFile_tV, 
+    //     ",%llu,0x%08llx,add_cb,_,_,%llu,_,%u||,%u\n", 
+    //     get_uid(),
+    //     pc,
+    //     issue_cycle,
+    //     op,
+    //     comMemOp
+    //   );
+    //   fclose(resOutFile_tV); 
+    // }
+
     if (!m_per_scalar_thread_valid) {
       m_per_scalar_thread.resize(m_config->warp_size);
       m_per_scalar_thread_valid = true;
@@ -1111,24 +1164,38 @@ class warp_inst_t : public inst_t {
   }  // for instruction counting
   bool empty() const { return m_empty; }
   unsigned warp_id() const {
-    assert(!m_empty);
-    return m_warp_id;
+    // assert(!m_empty);
+    // return m_warp_id;
+    if (!m_empty)
+      return m_warp_id;
+    else
+      return 65535;
   }
   unsigned warp_id_func() const  // to be used in functional simulations only
   {
     return m_warp_id;
   }
   unsigned dynamic_warp_id() const {
-    assert(!m_empty);
-    return m_dynamic_warp_id;
+    // assert(!m_empty);
+    // return m_dynamic_warp_id;
+    if (!m_empty)
+      return m_dynamic_warp_id;
+    else
+      return 65535;
   }
   bool has_callback(unsigned n) const {
     return m_warp_active_mask[n] && m_per_scalar_thread_valid &&
            (m_per_scalar_thread[n].callback.function != NULL);
   }
   new_addr_type get_addr(unsigned n) const {
-    assert(m_per_scalar_thread_valid);
-    return m_per_scalar_thread[n].memreqaddr[0];
+    //assert(m_per_scalar_thread_valid);
+    // Khoa, 2022/07/
+    if (m_per_scalar_thread_valid) {
+      return m_per_scalar_thread[n].memreqaddr[0];
+    } else {
+      return 0;
+    }
+    // return m_per_scalar_thread[n].memreqaddr[0];
   }
 
   bool isatomic() const { return m_isatomic; }
@@ -1152,18 +1219,39 @@ class warp_inst_t : public inst_t {
   unsigned get_schd_id() const { return m_scheduler_id; }
   active_mask_t get_warp_active_mask() const { return m_warp_active_mask; }
 
+
+
+  unsigned long long issue_cycle; // Khoa
+  const core_config *m_config; // Khoa
+  // Khoa
+  // memory_space_t whichspace(addr_t addr) {
+  //   if ((addr >= GLOBAL_HEAP_START) || (addr < STATIC_ALLOC_LIMIT)) {
+  //     return global_space;
+  //   } else if (addr >= SHARED_GENERIC_START) {
+  //     return shared_space;
+  //   } else {
+  //     return local_space;
+  //   }
+  // }
+  
+  // Khoa
+  bool decode_space(memory_space_t &space, memory_space *&mem, addr_t addr);
+  //
+
+
  protected:
+  //unsigned long long issue_cycle;
+  //const core_config *m_config;
   unsigned m_uid;
   bool m_empty;
   bool m_cache_hit;
-  unsigned long long issue_cycle;
   unsigned cycles;  // used for implementing initiation interval delay
   bool m_isatomic;
   bool should_do_atomic;
   bool m_is_printf;
   unsigned m_warp_id;
   unsigned m_dynamic_warp_id;
-  const core_config *m_config;
+  
   active_mask_t m_warp_active_mask;  // dynamic active mask for timing model
                                      // (after predication)
   active_mask_t

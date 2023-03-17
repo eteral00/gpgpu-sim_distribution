@@ -101,6 +101,9 @@ class memory_space {
   virtual void read(mem_addr_t addr, size_t length, void *data) const = 0;
   virtual void print(const char *format, FILE *fout) const = 0;
   virtual void set_watch(addr_t addr, unsigned watchpoint) = 0;
+
+// Khoa
+  virtual void write_approx(mem_addr_t addr, size_t length, const void *data) = 0;
 };
 
 template <unsigned BSIZE>
@@ -116,6 +119,8 @@ class memory_space_impl : public memory_space {
   virtual void print(const char *format, FILE *fout) const;
 
   virtual void set_watch(addr_t addr, unsigned watchpoint);
+// Khoa
+  virtual void write_approx(mem_addr_t addr, size_t length, const void *data);
 
  private:
   void read_single_block(mem_addr_t blk_idx, mem_addr_t addr, size_t length,

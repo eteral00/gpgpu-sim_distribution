@@ -55,13 +55,16 @@ private:
   vector<vector<int> > _packet_size_rate;
   vector<int> _packet_size_max_val;
 
+public: // Khoa
+  vector<Network *> _net;
+  vector<vector<Router *> > _router;
+  
 protected:
   int _nodes;
   int _routers;
   int _vcs;
 
-  vector<Network *> _net;
-  vector<vector<Router *> > _router;
+  
 
   // ============ Traffic ============ 
 
@@ -291,10 +294,10 @@ protected:
 
 public:
 
-  static TrafficManager * New(Configuration const & config, 
-			      vector<Network *> const & net);
+  // static TrafficManager * New(Configuration const & config, vector<Network *> const & net);
+  static TrafficManager * New(Configuration const & config, vector<Network *> const & net, unsigned n_shader); // Khoa
 
-  TrafficManager( const Configuration &config, const vector<Network *> & net );
+  TrafficManager( const Configuration &config, const vector<Network *> & net);
   virtual ~TrafficManager( );
 
   bool Run( );

@@ -50,6 +50,13 @@
 #include "qtree.hpp"
 #include "cmesh.hpp"
 
+#include <string>
+#include <set>
+#include <iterator>
+#include <cmath>
+#include "globals.hpp"
+#include "gputrafficmanager.hpp"
+#include "../gpgpu-sim/mem_fetch.h"
 
 
 map<string, tRoutingFunction> gRoutingFunctionMap;
@@ -68,6 +75,11 @@ int gReadReqBeginVC, gReadReqEndVC;
 int gWriteReqBeginVC, gWriteReqEndVC;
 int gReadReplyBeginVC, gReadReplyEndVC;
 int gWriteReplyBeginVC, gWriteReplyEndVC;
+
+///// Khoa
+int gProbeBeginVC, gProbeEndVC;
+int gRedirectBeginVC, gRedirectEndVC;
+////
 
 // ============================================================
 //  QTree: Nearest Common Ancestor
@@ -640,25 +652,329 @@ void dor_next_torus( int cur, int dest, int in_port,
 
 //=============================================================
 
-void dim_order_mesh( const Router *r, const Flit *f, int in_channel, OutputSet *outputs, bool inject )
+void dim_order_mesh( const Router *r, Flit *f, int in_channel, OutputSet *outputs, bool inject )
 {
-  int out_port = inject ? -1 : dor_next_mesh( r->GetID( ), f->dest );
+
+
+////
+// Khoa, 2022/08/
+// if (f->pid == 944035) {
+// printf("### CRITICAL SECTION STARTED ###: rf dim_order_mesh\n");
+// }
+
+// if (f->pid == 944035) {
+// cout << "### CRITICAL SECTION INSIDE ###: rf dim_order_mesh," << curID << "\n" ;
+// }
+bool isRedirected = false;
+mem_fetch* mft = NULL;
+long long unsigned blAddress;
+
+if (!inject) {
+  //// increment total hops count
+  g_icnt_interface->totalPacketHopsCount++;
+  ////
+
+  int curID = r->GetID();
+  long long unsigned curTime = g_icnt_interface->_traffic_manager->getTime();
+  mft = static_cast<mem_fetch* >(f->data);
+  blAddress = mft->get_addr();
+  // std::string exactDataKey;
+  // std::string dataKey = g_icnt_interface->_traffic_manager->makeDataKey(mft, exactDataKey);
   
+  //// tracking test
+  if (mft->get_access_type() == INST_ACC_R) {
+    FILE* resOutFile_inst = fopen("testInstFetch_rf_.csv", "a");
+    fprintf(resOutFile_inst, 
+      "%u,%u,%llu,%u",
+        mft->get_request_uid(),
+        f->pid,
+        curTime,
+        f->destMC
+    );
+    fclose(resOutFile_inst);
+  }
+  // if ( blAddress == 0xc0359ac0) {
+    
+      // FILE *resOutFile_pStep = fopen("testNoCLUT_PacketStep_rf_.csv", "a"); 
+
+      // int requester_icntID = g_icnt_interface->getIcntID(mft->get_tpc());
+
+      // fprintf(resOutFile_pStep, "%u,%u,%llu,%lld,%u,%03d,%03d | %03d,%03d | %03d | %03d,%u,before\n",
+      //   mft->get_request_uid(),
+      //   f->pid,
+      //   mft->get_w_inst()->issue_cycle,
+      //   curTime,
+      //   0,
+      //   r->GetID(),
+      //   requester_icntID,
+      //   f->src,
+      //   g_icnt_interface->getHomebase(mft),
+      //   f->destMC,
+      //   f->dest,
+      //   f->type
+      // );
+
+      // fclose(resOutFile_pStep);
+  //   }
+  ////
+
+  // printf("### CRITICAL SECTION INSIDE ###: rf dim_order_mesh\n");
+  // printf("### CRITICAL SECTION INSIDE ###: rf dim_order_mesh,%d\n", curID);
+  // if (f->pid == 944035) {
+  // // cout << "### CRITICAL SECTION INSIDE ###: rf dim_order_mesh," << curID << "\n" ;
+  // }
+  // printf("### CRITICAL SECTION INSIDE ###: rf dim_order_mesh,%d,%s\n", curID,dataKey.c_str());
+
+  if (f->head && f->type == Flit::READ_REQUEST) {
+  
+    // unordered_map< long long unsigned, set <unsigned> >::iterator itrt_map;
+    // std::set<unsigned>::iterator itrt;
+    // // std::set< pair<unsigned, long long unsigned> >::iterator itrt; 
+    // unsigned estimatedCost = g_icnt_interface->_traffic_manager->estimateFullTripCost(8, f->src, f->dest, curID); // hard-coded major dimension = 8
+    // unsigned tCost;
+    // unsigned bestDest = f->dest;
+    // long long unsigned redirectedAddress;
+    // bool approxMatch = false;
+    
+    // long long unsigned sharingAddress;
+    // unsigned homebaseIcntID;
+
+    ////// 
+    isRedirected = g_icnt_interface->_traffic_manager->reroutePacket(curID, f); // replacing entire section with refactored code in GPUTrafficManager
+    
+    //////
+
+
+//     // if ( /*(g_icnt_interface->getDeviceID(curID) < g_icnt_interface->_traffic_manager->_n_shader) 
+//     //     && */g_icnt_interface->_traffic_manager->NoCLUT_cluster[curID].count(blAddress) ) {
+//     if (!(f->redirectedFlag) /*&& g_icnt_interface->_traffic_manager->NoCLUT_memPart[curID].count(dataKey)*/) {
+//       /// packet not yet redirected, checking LUT table
+//       for (itrt_map = g_icnt_interface->_traffic_manager->NoCLUT_memPart[curID].begin();
+//             itrt_map != g_icnt_interface->_traffic_manager->NoCLUT_memPart[curID].end();
+//             itrt_map++) {
+//         approxMatch = g_icnt_interface->_traffic_manager->compareApprox(mft, itrt_map->first);
+//         if (!approxMatch) {
+//           continue; // not match skip to next entry
+//         }
+//       // for (itrt = g_icnt_interface->_traffic_manager->NoCLUT_cluster[curID][blAddress]._icntIDs.begin(); 
+//       //       itrt != g_icnt_interface->_traffic_manager->NoCLUT_cluster[curID][blAddress]._icntIDs.end(); 
+//       //       itrt++) {
+//       // for (itrt = g_icnt_interface->_traffic_manager->NoCLUT_memPart[curID][dataKey].begin(); 
+//       //       itrt != g_icnt_interface->_traffic_manager->NoCLUT_memPart[curID][dataKey].end(); 
+//       //       itrt++) {
+//       for (itrt = itrt_map->second.begin(); 
+//             itrt != itrt_map->second.end(); 
+//             itrt++) {
+
+//         tCost = g_icnt_interface->_traffic_manager->estimateFullTripCost(8, f->src, *itrt, curID); // hard-coded major dimension = 8
+//         // tCost = g_icnt_interface->_traffic_manager->estimateFullTripCost(8, f->src, itrt->first, curID);
+//         if ( tCost < estimatedCost ) { 
+//           // found a nearer data holder
+          
+// // FILE *resOutFile_dest = fopen("testChangePacketDest_.csv", "a");  
+// // fprintf(resOutFile_dest, "%u,%03d,%03d,%03d|%03d,%03u,%u,%u\n", 
+// //   f->pid,
+// //   curID,
+// //   f->src,
+// //   f->destMC,
+// //   f->dest,
+// //   (*itrt),
+// //   estimatedCost,
+// //   tCost
+// //   );
+// // fclose(resOutFile_dest);
+
+//           estimatedCost = tCost;
+//           bestDest = *itrt; // itrt->first;
+//           redirectedAddress = itrt_map->first; // itrt->second;
+//           // bestDest = (*itrt);
+//           f->redirectedFlag = true;
+          
+//           isRedirected = true;
+
+//         }
+//       }
+//     }} // end-for, // end-if (f->redirectedFlag)
+
+    
+//// single-entry LUT design
+    // if (g_icnt_interface->_traffic_manager->NoCLUT_cluster_s[curID].count(blAddress)) {
+    //   bestDest = g_icnt_interface->_traffic_manager->NoCLUT_cluster_s[curID][blAddress];
+    //   tCost = g_icnt_interface->_traffic_manager->estimateFullTripCost(8, f->src, bestDest, curID); // hard-coded major dimension = 8
+    //   if ( tCost < estimatedCost ) { 
+    //     // found a nearer data holder
+    //     f->redirectedFlag = true;
+    //     isRedirected = true;
+    //   }
+    // }
+
+    // if ( !(f->redirectedFlag) && g_icnt_interface->_traffic_manager->NoCLUT_memPart_s[curID].count(dataKey) ) {
+    //   bestDest = g_icnt_interface->_traffic_manager->NoCLUT_memPart_s[curID][dataKey];
+    //   tCost = g_icnt_interface->_traffic_manager->estimateFullTripCost(8, f->src, bestDest, curID); // hard-coded major dimension = 8
+    //   if ( tCost < estimatedCost ) { 
+    //     // found a nearer data holder
+    //     f->redirectedFlag = true;
+    //     isRedirected = true;
+    //   }
+    // }
+////
+
+
+
+    //// isRedirected used with MC/centralized design
+    if (isRedirected) {
+      // FILE *resOutFile_dest = fopen("testChangePacketBestDest_.csv", "a");  
+      // fprintf(resOutFile_dest, "%u,%03d,%03d,%03d|%03d,%03u\n", 
+      //   f->pid,
+      //   curID,
+      //   f->src,
+      //   f->destMC,
+      //   f->dest,
+      //   bestDest
+      //   );
+      // fclose(resOutFile_dest);
+      
+
+      //// used in multi-sharers design
+      /// can also be used in single-sharer, just unecessary, since no need to find best dest and best redirect address
+      /// code is better optimized if directly change f's dest and mft's redirect address above 
+      // f->dest = bestDest; // change current target dest to better dest
+      // // mft = static_cast<mem_fetch* >(f->data);
+      // if (redirectedAddress != 0) {
+      //   mft->redirectedAddress = redirectedAddress;
+      //   g_icnt_interface->changeMfData(mft, f->src);
+      // }
+      ////
+
+      //// update LUT in MC/centralized design
+      // if (g_icnt_interface->getDeviceID(curID) >= g_icnt_interface->_traffic_manager->_n_shader) {
+      //   // break 3
+      //   // g_icnt_interface->_traffic_manager->add_LUT_entry_cluster(curID, true, true, blAddress, f->src);
+
+      //   g_icnt_interface->_traffic_manager->add_LUT_entry_memPart(curID, dataKey, f->src, redirectedAddress);
+        
+      //   // g_icnt_interface->_traffic_manager->add_LUT_entry_memPart(curID, dataKey, f->src);
+      // }
+      ////
+
+      // f->redirectNodes.push_back(curID);
+      // f->redirectDests.push_back(bestDest);
+      g_icnt_interface->redirectedCount++;
+      g_icnt_interface->redirectedPackets[f->pid]++;
+      g_icnt_interface->redirectPacketPerDestCount[f->dest]++; // g_icnt_interface->redirectPacketPerDestCount[bestDest]++;
+      
+      
+      // if ( f->src == 0 ) {
+      //   std::string filePath = "testMatch_approx_.csv";
+      //   // g_icnt_interface->printMfData(static_cast<mem_fetch* >(f->data), filePath);
+      //   g_icnt_interface->printMfData(mft, filePath);
+      // }
+      
+    }
+////
+    
+  } else if (f->head && f->type == Flit::READ_REPLY) {
+    // if (g_icnt_interface->getDeviceID(curID) < g_icnt_interface->_traffic_manager->_n_shader) {
+    // if ( ((curID % 8) == (f->src % 8)) /*&& (abs(curID/8 - f->src/8) % 2)*/ ) { // add entry on y-dim, i.e., column, only
+      // std::set<unsigned>::iterator itrt_holders; 
+      // // for (itrt_holders = f->holderNodes.begin(); 
+      // //       itrt_holders != f->holderNodes.end(); 
+      // //       itrt_holders++) {
+      // //   g_icnt_interface->_traffic_manager->add_LUT_entry_cluster(curID, false, false, blAddress, (*itrt_holders));
+      // // }
+      // unsigned memPart_icntID = g_icnt_interface->getIcntID( g_icnt_interface->_traffic_manager->_n_shader + mft->get_sub_partition_id() );
+      // for (itrt_holders = g_icnt_interface->_traffic_manager->NoCLUT_memPart[memPart_icntID][dataKey].begin(); 
+      //       itrt_holders != g_icnt_interface->_traffic_manager->NoCLUT_memPart[memPart_icntID][dataKey].end();
+      //       itrt_holders++ ) {
+      //     g_icnt_interface->_traffic_manager->add_LUT_entry_cluster(curID, false, false, blAddress, (*itrt_holders));
+      // }
+
+      // // trace print out
+      // FILE *resOutFile_mPAS = fopen("testNoCLUT_mP_addStep_.csv", "a");
+      // fprintf(resOutFile_mPAS, "%03u,%03u,%03u\n", 
+      //   f->src,
+      //   f->dest, 
+      //   curID
+      //   );
+      // fclose(resOutFile_mPAS);
+    // }
+    // }
+  
+  } // end if (read_request) else if (read_reply)
+
+  g_icnt_interface->routedPacketPerDestCount[curID][f->dest]++; // 
+
+  if (f->type == Flit::READ_REQUEST) {
+    g_icnt_interface->totalHops_ReadRequest++;
+  } else if (f->type == Flit::READ_REPLY) {
+    g_icnt_interface->totalHops_ReadReply++;
+  }
+} // end if (!inject)
+
+// if (f->pid == 944035) {
+// printf("### CRITICAL SECTION ENDED ###: rf dim_order_mesh\n");
+// }
+//
+
+  bool yx_route = false;
+  if (f->type == Flit::READ_REPLY || f->type ==  Flit::WRITE_REPLY) {
+    yx_route = true;
+  } else {
+    if (f->redirectedFlag) {
+      yx_route = true;
+    } else {
+      yx_route = false;
+    }
+  }
+  // if ( f->type == Flit::READ_REQUEST && f->redirectedFlag) {
+  //   yx_route = true;
+  // } else if (f->type == Flit::READ_REPLY && (g_icnt_interface->getDeviceID(f->src) < g_icnt_interface->getNumOfShaders())) {
+  //   yx_route = false;
+  // }
+  int out_port = inject ? -1 : dor_next_mesh( r->GetID( ), f->dest, yx_route );
+  // int out_port = inject ? -1 : dor_next_mesh( r->GetID( ), f->dest );
+
   int vcBegin = 0, vcEnd = gNumVCs-1;
   if ( f->type == Flit::READ_REQUEST ) {
-    vcBegin = gReadReqBeginVC;
-    vcEnd = gReadReqEndVC;
+
+    if (f->isProbeFlag) {
+      //// first probe
+      vcBegin = gProbeBeginVC;
+      vcEnd = gProbeEndVC;
+    } else if (f->redirectedFlag) {
+      //// read request redirected to peer
+      vcBegin = gRedirectBeginVC;
+      vcEnd = gRedirectEndVC;
+    } else {
+      //// read request to MC
+      vcBegin = gReadReqBeginVC;
+      vcEnd = gReadReqEndVC;
+    }
+
+    // vcBegin = gReadReqBeginVC;
+    // vcEnd = gReadReqEndVC;
   } else if ( f->type == Flit::WRITE_REQUEST ) {
     vcBegin = gWriteReqBeginVC;
     vcEnd = gWriteReqEndVC;
   } else if ( f->type ==  Flit::READ_REPLY ) {
+    
+    // if (g_icnt_interface->getDeviceID(f->src) < g_icnt_interface->getNumOfShaders()) {
+    //   //// read reply from peer
+    //   vcBegin = gReadReplyEndVC;
+    //   vcEnd = gReadReplyEndVC;
+    // } else {
+    //   //// read reply from MC
+    //   vcBegin = gReadReplyBeginVC;
+    //   vcEnd = gReadReplyEndVC-1;
+    // }
+    
     vcBegin = gReadReplyBeginVC;
     vcEnd = gReadReplyEndVC;
   } else if ( f->type ==  Flit::WRITE_REPLY ) {
     vcBegin = gWriteReplyBeginVC;
     vcEnd = gWriteReplyEndVC;
   }
-  assert(((f->vc >= vcBegin) && (f->vc <= vcEnd)) || (inject && (f->vc < 0)));
+  // assert(((f->vc >= vcBegin) && (f->vc <= vcEnd)) || (inject && (f->vc < 0)));
 
   if ( !inject && f->watch ) {
     *gWatchOut << GetSimTime() << " | " << r->FullName() << " | "
@@ -674,7 +990,52 @@ void dim_order_mesh( const Router *r, const Flit *f, int in_channel, OutputSet *
   
   outputs->Clear();
 
-  outputs->AddRange( out_port, vcBegin, vcEnd );
+  outputs->AddRange( out_port, vcBegin, vcEnd, f->pri );
+  // outputs->AddRange( out_port, vcBegin, vcEnd );
+
+
+//// Khoa
+if (!inject) {
+//   FILE *resOutFile_destCount = fopen("testChangePacketDestCountF_.csv", "a");  
+//   fprintf(resOutFile_destCount, "%u,%lld,%03d,%u,%u\n", 
+//     f->pid,
+//     g_icnt_interface->_traffic_manager->getTime(),
+//     r->GetID(),
+//     g_icnt_interface->redirectedCount,
+//     g_icnt_interface->redirectedPackets.size()
+//     );
+//   fclose(resOutFile_destCount);
+
+
+////
+// if ( (f->pid == 141592) /*&& (f->pid < 387000)*/) {
+  // if ( mft && blAddress == 0xc0359ac0 ) {
+  
+    // FILE *resOutFile_pStep2 = fopen("testNoCLUT_PacketStep_rf_.csv", "a"); 
+
+    // int requester_icntID = g_icnt_interface->getIcntID(mft->get_tpc());
+
+    // fprintf(resOutFile_pStep2, "%u,%u,%llu,%lld,%u,%03d,%03d | %03d,%03d | %03d | %03d,%u,after\n",
+    //   mft->get_request_uid(),
+    //   f->pid,
+    //   mft->get_w_inst()->issue_cycle,
+    //   g_icnt_interface->_traffic_manager->getTime(),
+    //   0,
+    //   r->GetID(),
+    //   requester_icntID,
+    //   f->src,
+    //   g_icnt_interface->getHomebase(mft),
+    //   f->destMC,
+    //   f->dest,
+    //   f->type
+    // );
+
+
+    // fclose(resOutFile_pStep2);
+  // }
+}
+////
+
 }
 
 //=============================================================
@@ -1922,27 +2283,27 @@ void InitializeRoutingMap( const Configuration & config )
   //
   // traffic class partitions
   //
-  gReadReqBeginVC    = config.GetInt("read_request_begin_vc");
+  gReadReqBeginVC = config.GetInt("read_request_begin_vc");
   if(gReadReqBeginVC < 0) {
     gReadReqBeginVC = 0;
   }
-  gReadReqEndVC      = config.GetInt("read_request_end_vc");
+  gReadReqEndVC = config.GetInt("read_request_end_vc");
   if(gReadReqEndVC < 0) {
     gReadReqEndVC = gNumVCs / 2 - 1;
   }
-  gWriteReqBeginVC   = config.GetInt("write_request_begin_vc");
+  gWriteReqBeginVC = config.GetInt("write_request_begin_vc");
   if(gWriteReqBeginVC < 0) {
     gWriteReqBeginVC = 0;
   }
-  gWriteReqEndVC     = config.GetInt("write_request_end_vc");
+  gWriteReqEndVC = config.GetInt("write_request_end_vc");
   if(gWriteReqEndVC < 0) {
     gWriteReqEndVC = gNumVCs / 2 - 1;
   }
-  gReadReplyBeginVC  = config.GetInt("read_reply_begin_vc");
+  gReadReplyBeginVC = config.GetInt("read_reply_begin_vc");
   if(gReadReplyBeginVC < 0) {
     gReadReplyBeginVC = gNumVCs / 2;
   }
-  gReadReplyEndVC    = config.GetInt("read_reply_end_vc");
+  gReadReplyEndVC = config.GetInt("read_reply_end_vc");
   if(gReadReplyEndVC < 0) {
     gReadReplyEndVC = gNumVCs - 1;
   }
@@ -1950,50 +2311,71 @@ void InitializeRoutingMap( const Configuration & config )
   if(gWriteReplyBeginVC < 0) {
     gWriteReplyBeginVC = gNumVCs / 2;
   }
-  gWriteReplyEndVC   = config.GetInt("write_reply_end_vc");
+  gWriteReplyEndVC = config.GetInt("write_reply_end_vc");
   if(gWriteReplyEndVC < 0) {
     gWriteReplyEndVC = gNumVCs - 1;
+  }
+
+  gProbeBeginVC = config.GetInt("probe_begin_vc");
+  if (gProbeBeginVC < 0) {
+    gProbeBeginVC = gReadReqBeginVC;
+  }
+  gProbeEndVC = config.GetInt("probe_end_vc");
+  if (gProbeEndVC < 0) {
+    gProbeEndVC = gReadReqEndVC;
+  }
+  gRedirectBeginVC = config.GetInt("redirect_begin_vc");
+  if (gRedirectBeginVC < 0) {
+    gRedirectBeginVC = gReadReqBeginVC;
+  }
+  gRedirectEndVC = config.GetInt("redirect_end_vc");
+  if (gRedirectEndVC < 0) {
+    gRedirectEndVC - gReadReqEndVC;
   }
 
   /* Register routing functions here */
 
   // ===================================================
   // Balfour-Schultz
-  gRoutingFunctionMap["nca_fattree"]         = &fattree_nca;
-  gRoutingFunctionMap["anca_fattree"]        = &fattree_anca;
-  gRoutingFunctionMap["nca_qtree"]           = &qtree_nca;
-  gRoutingFunctionMap["nca_tree4"]           = &tree4_nca;
-  gRoutingFunctionMap["anca_tree4"]          = &tree4_anca;
+
+  // gRoutingFunctionMap["nca_fattree"]         = &fattree_nca;
+  // gRoutingFunctionMap["anca_fattree"]        = &fattree_anca;
+  // gRoutingFunctionMap["nca_qtree"]           = &qtree_nca;
+  // gRoutingFunctionMap["nca_tree4"]           = &tree4_nca;
+  // gRoutingFunctionMap["anca_tree4"]          = &tree4_anca;
   gRoutingFunctionMap["dor_mesh"]            = &dim_order_mesh;
-  gRoutingFunctionMap["xy_yx_mesh"]          = &xy_yx_mesh;
-  gRoutingFunctionMap["adaptive_xy_yx_mesh"]          = &adaptive_xy_yx_mesh;
+  // gRoutingFunctionMap["xy_yx_mesh"]          = &xy_yx_mesh;
+  // gRoutingFunctionMap["adaptive_xy_yx_mesh"]          = &adaptive_xy_yx_mesh;
+
   // End Balfour-Schultz
   // ===================================================
 
+
   gRoutingFunctionMap["dim_order_mesh"]  = &dim_order_mesh;
-  gRoutingFunctionMap["dim_order_ni_mesh"]  = &dim_order_ni_mesh;
-  gRoutingFunctionMap["dim_order_pni_mesh"]  = &dim_order_pni_mesh;
-  gRoutingFunctionMap["dim_order_torus"] = &dim_order_torus;
-  gRoutingFunctionMap["dim_order_ni_torus"] = &dim_order_ni_torus;
-  gRoutingFunctionMap["dim_order_bal_torus"] = &dim_order_bal_torus;
+  // gRoutingFunctionMap["dim_order_ni_mesh"]  = &dim_order_ni_mesh;
+  // gRoutingFunctionMap["dim_order_pni_mesh"]  = &dim_order_pni_mesh;
+  // gRoutingFunctionMap["dim_order_torus"] = &dim_order_torus;
+  // gRoutingFunctionMap["dim_order_ni_torus"] = &dim_order_ni_torus;
+  // gRoutingFunctionMap["dim_order_bal_torus"] = &dim_order_bal_torus;
 
-  gRoutingFunctionMap["romm_mesh"]       = &romm_mesh; 
-  gRoutingFunctionMap["romm_ni_mesh"]    = &romm_ni_mesh;
+  // gRoutingFunctionMap["romm_mesh"]       = &romm_mesh; 
+  // gRoutingFunctionMap["romm_ni_mesh"]    = &romm_ni_mesh;
 
-  gRoutingFunctionMap["min_adapt_mesh"]   = &min_adapt_mesh;
-  gRoutingFunctionMap["min_adapt_torus"]  = &min_adapt_torus;
+  // gRoutingFunctionMap["min_adapt_mesh"]   = &min_adapt_mesh;
+  // gRoutingFunctionMap["min_adapt_torus"]  = &min_adapt_torus;
 
-  gRoutingFunctionMap["planar_adapt_mesh"] = &planar_adapt_mesh;
+  // gRoutingFunctionMap["planar_adapt_mesh"] = &planar_adapt_mesh;
 
   // FIXME: This is broken.
   //  gRoutingFunctionMap["limited_adapt_mesh"] = &limited_adapt_mesh;
 
-  gRoutingFunctionMap["valiant_mesh"]  = &valiant_mesh;
-  gRoutingFunctionMap["valiant_torus"] = &valiant_torus;
-  gRoutingFunctionMap["valiant_ni_torus"] = &valiant_ni_torus;
 
-  gRoutingFunctionMap["dest_tag_fly"] = &dest_tag_fly;
+  // gRoutingFunctionMap["valiant_mesh"]  = &valiant_mesh;
+  // gRoutingFunctionMap["valiant_torus"] = &valiant_torus;
+  // gRoutingFunctionMap["valiant_ni_torus"] = &valiant_ni_torus;
 
-  gRoutingFunctionMap["chaos_mesh"]  = &chaos_mesh;
-  gRoutingFunctionMap["chaos_torus"] = &chaos_torus;
+  // gRoutingFunctionMap["dest_tag_fly"] = &dest_tag_fly;
+
+  // gRoutingFunctionMap["chaos_mesh"]  = &chaos_mesh;
+  // gRoutingFunctionMap["chaos_torus"] = &chaos_torus;
 }

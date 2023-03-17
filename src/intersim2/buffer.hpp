@@ -70,7 +70,15 @@ public:
   {
     return _vc[vc]->FrontFlit( );
   }
-  
+
+
+// Khoa
+  inline Flit *FrontFlit_n( int vc )
+  {
+    return _vc[vc]->FrontFlit( );
+  }
+////
+
   inline bool Empty( int vc ) const
   {
     return _vc[vc]->Empty( );
@@ -121,7 +129,8 @@ public:
     return _vc[vc]->GetPriority( );
   }
 
-  inline void Route( int vc, tRoutingFunction rf, const Router* router, const Flit* f, int in_channel )
+  // inline void Route( int vc, tRoutingFunction rf, const Router* router, const Flit* f, int in_channel )
+  inline void Route( int vc, tRoutingFunction rf, const Router* router, Flit* f, int in_channel )
   {
     _vc[vc]->Route(rf, router, f, in_channel);
   }

@@ -33,14 +33,29 @@
 #include <map>
 #include <string>
 #include <vector>
+
 #include "../abstract_hardware_model.h"
 #include "../gpgpu-sim/shader.h"
 #include "ptx_sim.h"
+
+// #include "../gpgpu-sim/gpu-sim.h"
+// #include "ptx_ir.h"
+// #include "instructions.h"
+// #include "opcodes.h"
+// #include "half.h"
+// #include "half.hpp"
+// #include "cuda_device_runtime.h"
+// #include "../../libcuda/gpgpu_context.h"
+// #include "cuda-math.h"
+// #include "cuda_device_printf.h"
+// #include "ptx.tab.h"
+// #include "ptx_loader.h"
 
 class gpgpu_context;
 class memory_space;
 class function_info;
 class symbol_table;
+
 
 extern const char *g_gpgpusim_version_string;
 extern int g_debug_execution;

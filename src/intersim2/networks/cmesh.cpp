@@ -62,10 +62,10 @@ CMesh::CMesh( const Configuration& config, const string & name )
 }
 
 void CMesh::RegisterRoutingFunctions() {
-  gRoutingFunctionMap["dor_cmesh"] = &dor_cmesh;
-  gRoutingFunctionMap["dor_no_express_cmesh"] = &dor_no_express_cmesh;
-  gRoutingFunctionMap["xy_yx_cmesh"] = &xy_yx_cmesh;
-  gRoutingFunctionMap["xy_yx_no_express_cmesh"]  = &xy_yx_no_express_cmesh;
+  // gRoutingFunctionMap["dor_cmesh"] = &dor_cmesh;
+  // gRoutingFunctionMap["dor_no_express_cmesh"] = &dor_no_express_cmesh;
+  // gRoutingFunctionMap["xy_yx_cmesh"] = &xy_yx_cmesh;
+  // gRoutingFunctionMap["xy_yx_no_express_cmesh"]  = &xy_yx_no_express_cmesh;
 }
 
 void CMesh::_ComputeSize( const Configuration &config ) {
@@ -452,8 +452,8 @@ int cmesh_yx( int cur, int dest ) {
   return 0;
 }
 
-void xy_yx_cmesh( const Router *r, const Flit *f, int in_channel, 
-		  OutputSet *outputs, bool inject )
+// void xy_yx_cmesh( const Router *r, const Flit *f, int in_channel, OutputSet *outputs, bool inject )
+void xy_yx_cmesh( const Router *r, Flit *f, int in_channel, OutputSet *outputs, bool inject )
 {
 
   // ( Traffic Class , Routing Order ) -> Virtual Channel Range
@@ -593,8 +593,8 @@ int cmesh_yx_no_express( int cur, int dest ) {
   return 0;
 }
 
-void xy_yx_no_express_cmesh( const Router *r, const Flit *f, int in_channel, 
-			     OutputSet *outputs, bool inject )
+// void xy_yx_no_express_cmesh( const Router *r, const Flit *f, int in_channel, OutputSet *outputs, bool inject )
+void xy_yx_no_express_cmesh( const Router *r, Flit *f, int in_channel, OutputSet *outputs, bool inject )
 {
   // ( Traffic Class , Routing Order ) -> Virtual Channel Range
   int vcBegin = 0, vcEnd = gNumVCs-1;
@@ -720,8 +720,8 @@ int cmesh_next( int cur, int dest ) {
   return -1;
 }
 
-void dor_cmesh( const Router *r, const Flit *f, int in_channel, 
-		OutputSet *outputs, bool inject )
+// void dor_cmesh( const Router *r, const Flit *f, int in_channel, OutputSet *outputs, bool inject )
+void dor_cmesh( const Router *r, Flit *f, int in_channel, OutputSet *outputs, bool inject )
 {
   // ( Traffic Class , Routing Order ) -> Virtual Channel Range
   int vcBegin = 0, vcEnd = gNumVCs-1;
@@ -804,8 +804,8 @@ int cmesh_next_no_express( int cur, int dest ) {
   return -1;
 }
 
-void dor_no_express_cmesh( const Router *r, const Flit *f, int in_channel, 
-			   OutputSet *outputs, bool inject )
+// void dor_no_express_cmesh( const Router *r, const Flit *f, int in_channel, OutputSet *outputs, bool inject )
+void dor_no_express_cmesh( const Router *r, Flit *f, int in_channel, OutputSet *outputs, bool inject )
 {
   // ( Traffic Class , Routing Order ) -> Virtual Channel Range
   int vcBegin = 0, vcEnd = gNumVCs-1;

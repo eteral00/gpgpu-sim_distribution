@@ -355,6 +355,33 @@ void memory_partition_unit::dram_cycle() {
       !m_dram->full(m_dram_latency_queue.front().req->is_write())) {
     mem_fetch *mf = m_dram_latency_queue.front().req;
     m_dram_latency_queue.pop_front();
+
+////
+// FILE *resOutFile_l2mp = fopen("testL2MP_.csv", "a");  
+//   fprintf(resOutFile_l2mp, 
+//     "%u,%llu,%llu,#%u__%u,id#%u,%llu,%llu,%llu,0x%08llx,0x%08llx,%d,MC#%u__Peer#%u,HB#%u,Sh#%d,Pr#%d\n",
+//       get_mpid(),
+//       m_gpu->gpu_sim_cycle,
+//       m_gpu->gpu_tot_sim_cycle,
+//       mf->get_sid(),
+//       mf->get_tpc(),
+//       mf->get_request_uid(),
+//       mf->get_timestamp(),
+//       mf->get_return_timestamp(),
+//       mf->get_icnt_receive_time(),
+//       mf->get_addr(),
+//       mf->redirectedAddress,
+//       mf->get_type(),
+//       mf->mcIcntID,
+//       mf->peerIcntID,
+//       mf->homebaseIcntID,
+//       mf->sharerIcntID,
+//       mf->m_ptpc
+//   ); /// sharerIcntID == m_ptpc ?? 
+  
+//   fclose(resOutFile_l2mp);
+////
+
     m_dram->push(mf);
   }
 }
@@ -456,6 +483,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
         mf->set_reply();
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        mf->time_ReadReplyInMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2022/11/
         m_L2_icnt_queue->push(mf);
       } else {
         if (m_config->m_L2_config.m_write_alloc_policy == FETCH_ON_WRITE) {
@@ -465,6 +493,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
           original_wr_mf->set_status(
               IN_PARTITION_L2_TO_ICNT_QUEUE,
               m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+          original_wr_mf->time_ReadReplyInMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2022/11/
           m_L2_icnt_queue->push(original_wr_mf);
         }
         m_request_tracker.erase(mf);
@@ -488,6 +517,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       if (mf->is_write() && mf->get_type() == WRITE_ACK)
         mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                        m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      mf->time_ReadReplyInMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2022/11/
       m_L2_icnt_queue->push(mf);
       m_dram_L2_queue->pop();
     }
@@ -499,6 +529,11 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   // new L2 texture accesses and/or non-texture accesses
   if (!m_L2_dram_queue->full() && !m_icnt_L2_queue->empty()) {
     mem_fetch *mf = m_icnt_L2_queue->top();
+    mf->time_RequestAtHeadOfMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2023/01/
+    if (mf->get_type() == READ_REQUEST) {
+      m_gpu-> totalReadRequestWaitTimeInIcntL2Queue += (mf->time_RequestAtHeadOfMCQueue - mf->time_RequestInMCQueue);
+    } //
+    
     if (!m_config->m_L2_config.disabled() &&
         ((m_config->m_L2_texure_only && mf->istexture()) ||
          (!m_config->m_L2_texure_only))) {
@@ -528,6 +563,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
               mf->set_reply();
               mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                              m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+              mf->time_ReadReplyInMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2022/11/
               m_L2_icnt_queue->push(mf);
             }
             m_icnt_L2_queue->pop();
@@ -544,6 +580,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
             mf->set_reply();
             mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                            m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+            mf->time_ReadReplyInMCQueue = m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle; // Khoa, 2022/11/
             m_L2_icnt_queue->push(mf);
           }
           // L2 cache accepted request

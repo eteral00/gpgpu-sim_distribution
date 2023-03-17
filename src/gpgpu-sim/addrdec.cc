@@ -146,6 +146,7 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       unsigned sub_partition_addr_mask = m_n_sub_partition_in_channel - 1;
       unsigned sub_partition = tlx->chip * m_n_sub_partition_in_channel +
                                (tlx->bk & sub_partition_addr_mask);
+      // printf("IPoly hash break 1\n"); // Khoa
       sub_partition = ipoly_hash_function(
           rest_of_addr_high_bits, sub_partition,
           nextPowerOf2_m_n_channel * m_n_sub_partition_in_channel);

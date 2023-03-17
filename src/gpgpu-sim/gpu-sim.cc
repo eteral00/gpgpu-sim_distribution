@@ -65,6 +65,8 @@
 #include "power_stat.h"
 #include "stats.h"
 #include "visualizer.h"
+// Khoa Ho - 2022/06
+// #include "../intersim2/nox/sim_result.h" 
 
 #ifdef GPGPUSIM_POWER_MODEL
 #include "power_interface.h"
@@ -1059,6 +1061,23 @@ void gpgpu_sim::update_stats() {
 }
 
 void gpgpu_sim::print_stats() {
+
+
+
+  // Khoa Ho - 2022/06
+  // adding sim_result() to print nox result
+  // printf("----------------------------NOX-DETAILS--------------------------------\n" );
+  // sim_result();
+  // printf("----------------------------END-of-NOX-DEAILS--------------------------\n" );
+  
+  FILE *resOutFile_waitTime = fopen("testWaitTimeIcntL2Queue_.csv", "a");
+  fprintf(resOutFile_waitTime, ",%llu\n", 
+    totalReadRequestWaitTimeInIcntL2Queue
+    );
+  fclose(resOutFile_waitTime); 
+
+
+  
   gpgpu_ctx->stats->ptx_file_line_stats_write_file();
   gpu_print_stat();
 
@@ -1067,6 +1086,9 @@ void gpgpu_sim::print_stats() {
         "----------------------------Interconnect-DETAILS----------------------"
         "----------\n");
     icnt_display_stats();
+    
+    printf("|| Overall-Stats ||\n");
+
     icnt_display_overall_stats();
     printf(
         "----------------------------END-of-Interconnect-DETAILS---------------"
@@ -1753,14 +1775,30 @@ void gpgpu_sim::cycle() {
       if (mf) {
         unsigned response_size =
             mf->get_is_write() ? mf->get_ctrl_size() : mf->size();
-        if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size)) {
+        // if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size)) {
+        if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size, 1)) { // Khoa
           // if (!mf->get_is_write())
           mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
           mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
+          // mf->time_ReadReplySent = gpu_sim_cycle + gpu_tot_sim_cycle; // Khoa, 2022/11
           ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
                       response_size);
           m_memory_sub_partition[i]->pop();
           partiton_replys_in_parallel_per_cycle++;
+
+
+
+// Khoa, 2022/07
+  // FILE *resOutFile_ = fopen("testMemoryPartID_.csv", "a");
+  // fprintf(resOutFile_, ",%llu,%llu,__%u,%u\n", 
+  //   gpu_sim_cycle,
+  //   gpu_tot_sim_cycle,
+  //   mf->get_tpc(),
+  //   m_shader_config->mem2device(i)
+  //   );
+  // fclose(resOutFile_); 
+
+
         } else {
           gpu_stall_icnt2sh++;
         }
@@ -1803,7 +1841,9 @@ void gpgpu_sim::cycle() {
       if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
         gpu_stall_dramfull++;
       } else {
-        mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+        // mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i));
+        mem_fetch *mf = (mem_fetch *)icnt_pop(m_shader_config->mem2device(i), 0, gpu_sim_cycle + gpu_tot_sim_cycle); // Khoa, 2022/07/ , 0 == request subnet
+        
         m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
         if (mf) partiton_reqs_in_parallel_per_cycle++;
       }
@@ -1819,7 +1859,8 @@ void gpgpu_sim::cycle() {
   }
 
   if (clock_mask & ICNT) {
-    icnt_transfer();
+    icnt_transfer(gpu_sim_cycle + gpu_tot_sim_cycle);
+    // icnt_transfer();
   }
 
   if (clock_mask & CORE) {

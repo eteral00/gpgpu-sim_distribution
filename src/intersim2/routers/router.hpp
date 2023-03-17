@@ -38,11 +38,16 @@
 #include "channel.hpp"
 #include "config_utils.hpp"
 
+// #include "../gputrafficmanager.hpp"
+class GPUTrafficManager;
+
 typedef Channel<Credit> CreditChannel;
+
 
 class Router : public TimedModule {
 
-protected:
+// protected: // Khoa
+public:
 
   static int const STALL_BUFFER_BUSY;
   static int const STALL_BUFFER_CONFLICT;
@@ -197,6 +202,15 @@ public:
 
   inline int NumInputs() const {return _inputs;}
   inline int NumOutputs() const {return _outputs;}
+
+
+// Khoa
+// public:
+  // GPUTrafficManager* _traffic_manager;
+  vector<Router *> _routers;
+////
+
+
 };
 
 #endif

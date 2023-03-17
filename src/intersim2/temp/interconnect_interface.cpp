@@ -436,7 +436,7 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
   }
   valRange = valMax - valMin;
   
-  valAverage = (valSum / numberOfVal);
+  valAverage = (valSum/numberOfVal);
 
   bitset<64> binarizedBlock;
   for (unsigned idx = 0; idx < numberOfVal; idx++) {
@@ -464,7 +464,7 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
 
   // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valAverage_u32.u << "_" << valRange_u32.u << "_" << static_cast<uint32_t>(binarizedBlock.to_ullong()) ;
 
-  // valAverage = valSum / numberOfVal;
+  valAverage = valSum / numberOfVal;
   // Khoa, 2022/02/22
   // valAverage.data_ = ((valAverage.data_ >> 10 ) << 10); // clear least significant 7 bits, i.e., takes only 9 bits
   // valRange.data_ = ((valRange.data_ >> 10) << 10);
@@ -1490,64 +1490,6 @@ void* InterconnectInterface::Pop(unsigned deviceID, unsigned subnet, long long u
 // Khoa
 void InterconnectInterface::printLUT() {
 
-
-FILE *resOutFile_linkUtil = fopen("testLinkUtilization_.csv", "a");
-fprintf(resOutFile_linkUtil,
-  "Num Of Nodes:,%d,,Num of Routers:,%d,,Num of Classes:,%d\n",
-    _net[0]->NumNodes(),
-    _net[0]->NumRouters(),
-    _net[0]->GetRouter(0)->_classes
-);
-for (int idx1 = 0; idx1 < _subnets; idx1++) {
-  fprintf(resOutFile_linkUtil,
-    "Subnet:,%d\n",
-      idx1
-  );
-  for (int idx2 = 0; idx2 < _net[idx1]->NumRouters(); idx2++) {
-    Router * tRouter = _net[idx1]->GetRouter(idx2);
-    
-    for (int idx3i = 0; idx3i < tRouter->_inputs; idx3i++) {
-      for (int idx4i = 0; idx4i < tRouter->_classes; idx4i++) {
-        fprintf(resOutFile_linkUtil,
-          "%03d,in,%d,%d,_,%d,%d\n",
-            tRouter->_id,
-            idx3i,
-            idx4i,
-            tRouter->_input_channels[idx3i]->getActive(idx4i),
-            tRouter->_input_channels[idx3i]->getIdle()
-        );
-      }  
-    }
-    
-    for (int idx3o = 0; idx3o < tRouter->_outputs; idx3o++) {
-      for (int idx4o = 0; idx4o < tRouter->_classes; idx4o++) {
-        fprintf(resOutFile_linkUtil,
-          "%03d,out,%d,%d,_,%d,%d\n",
-            tRouter->_id,
-            idx3o,
-            idx4o,
-            tRouter->_output_channels[idx3o]->getActive(idx4o),
-            tRouter->_output_channels[idx3o]->getIdle()
-        );
-      }  
-    }
-    fflush(resOutFile_linkUtil);
-  } // end for num of routers/nodes
-
-  // for (int idx2 = 0; idx2 < _net[idx1]->NumChannels(); idx2++) {
-  //   fprintf(resOutFile_linkUtil,
-  //     "%d,%d,%d\n",
-  //       idx2,
-  //       _net[idx1]->GetChannels()[idx2]->getActive(0),
-  //       _net[idx1]->GetChannels()[idx2]->getIdle()
-  //   );
-  // }
-
-} // end for subnets
-fprintf(resOutFile_linkUtil,
-  "----------------------------------------------------------------\n"
-);
-fclose(resOutFile_linkUtil);
 
 FILE *resOutFile_trt = fopen("testReadRoundTripTime_.csv", "a");
 fprintf(resOutFile_trt,

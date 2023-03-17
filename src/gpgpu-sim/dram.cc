@@ -218,6 +218,7 @@ dram_req_t::dram_req_t(class mem_fetch *mf, unsigned banks,
        * http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=348DEA37A3E440473B3C075EAABC63B6?doi=10.1.1.12.7149&rep=rep1&type=pdf
        */
       // xoring bank bits with lower bits of the page
+      printf("break 2\n"); // Khoa
       bk = ipoly_hash_function(tlx.row, tlx.bk, banks);
       assert(bk < banks);
       break;
@@ -242,6 +243,29 @@ dram_req_t::dram_req_t(class mem_fetch *mf, unsigned banks,
 }
 
 void dram_t::push(class mem_fetch *data) {
+
+////
+  // FILE *resOutFile_dram = fopen("testDRAM_.csv", "a");  
+  // fprintf(resOutFile_dram, 
+  //   "#%u__%u,id#%u,%llu,%llu,%llu,0x%08llx,0x%08llx,%d,MC#%u__Peer#%u,HB#%u,Sh#%d,Pr#%d\n",
+  //     data->get_sid(),
+  //     data->get_tpc(),
+  //     data->get_request_uid(),
+  //     data->get_timestamp(),
+  //     data->get_return_timestamp(),
+  //     data->get_icnt_receive_time(),
+  //     data->get_addr(),
+  //     data->redirectedAddress,
+  //     data->get_type(),
+  //     data->mcIcntID,
+  //     data->peerIcntID,
+  //     data->homebaseIcntID,
+  //     data->sharerIcntID,
+  //     data->m_ptpc
+  // ); /// sharerIcntID == m_ptpc ?? 
+  
+  // fclose(resOutFile_dram);
+////
   assert(id == data->get_tlx_addr()
                    .chip);  // Ensure request is in correct memory partition
 
