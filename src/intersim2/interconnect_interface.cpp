@@ -325,7 +325,8 @@ AverageRangePair InterconnectInterface::approx_Average_2(uint16_t * valueBlock, 
 std::string InterconnectInterface::approx_Average(uint16_t * valueBlock, unsigned numberOfVal) {
   std::ostringstream approxResult;
   // std::ostringstream strStream;
-//// as UINT16 
+  
+  //// as UINT16 
   // long unsigned valSum = valueBlock[0];
   // uint16_t valMin = valueBlock[0];
   // uint16_t valMax = valueBlock[0];
@@ -343,30 +344,57 @@ std::string InterconnectInterface::approx_Average(uint16_t * valueBlock, unsigne
   // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valSum << valRange ;
 ////
 
-//// as FP16 (actually converted to Float)
+  //// as FP16 (actually converted to Float)
   half_float::half tempVal;
   tempVal.data_ = valueBlock[0];
-  float tempValFloat = float(tempVal);
-  float valSum = tempValFloat;
-  float valMin = tempValFloat;
-  float valMax = tempValFloat;
-  float valRange = 0;
+  // float tempValFloat = float(tempVal);
+  // float valSum = tempValFloat;
+  // float valMin = tempValFloat;
+  // float valMax = tempValFloat;
+  // float valRange = 0;
+  half_float::half valSum = tempVal;
+  half_float::half valMin = tempVal;
+  half_float::half valMax = tempVal;
+  half_float::half valRange;
+  half_float::half valAverage;
 
   for (unsigned idx = 1; idx < numberOfVal; idx++) {
-    tempVal.data_ = valueBlock[idx];
-    tempValFloat = float(tempVal);
-    valSum += tempValFloat;
-    if (tempValFloat < valMin) {
-      valMin = tempValFloat;
-    } else if (tempValFloat > valMax) {
-      valMax = tempValFloat;
+    // tempVal.data_ = valueBlock[idx];
+    tempVal.data_ = (valueBlock[idx] >> 7 ) << 7;
+    // tempVal.data_ = valueBlock[idx] & 0xff80; // Khoa, 2023/02/20, take only 9 bits out of 16 bits
+    // tempValFloat = float(tempVal);
+    // valSum += tempValFloat;
+    // if (tempValFloat < valMin) {
+    //   valMin = tempValFloat;
+    // } else if (tempValFloat > valMax) {
+    //   valMax = tempValFloat;
+    // }
+    valSum += tempVal;
+    if (tempVal < valMin) {
+      valMin = tempVal;
+    } else if (tempVal > valMax) {
+      valMax = tempVal;
     }
   }
   valRange = valMax - valMin;
   // rounded to int
   // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << (int)(valSum/numberOfVal) << (unsigned)valRange ;
   // not rounding
-  approxResult << std::setfill('0') <<  std::hex << std::setw(8) << (valSum/numberOfVal) << valRange ;
+  // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << (valSum/numberOfVal) << valRange ; // Khoa, 2023/02/17
+  
+  // union {
+  //   float f;
+  //   uint32_t u;
+  // } valAverage_u32 = { .f = (valSum/numberOfVal) };
+  // union {
+  //   float f;
+  //   uint32_t u;
+  // } valRange_u32 = { .f = valRange };
+
+  // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valAverage_u32.u << "_" << valRange_u32.u;
+  valAverage = valSum / numberOfVal;
+  approxResult << std::setfill('0') <<  std::hex << std::setw(4) << valAverage.data_ << "," << valRange.data_ ; // << "," << valMax.data_ ; // Khoa, 2023/02/20 
+
 ////
   
   return approxResult.str();
@@ -378,37 +406,72 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
   //// as FP16 (actually converted to FP32)
   half_float::half tempVal;
   tempVal.data_ = valueBlock[0];
-  float tempValFloat = float(tempVal);
-  float valSum = tempValFloat;
-  float valMin = tempValFloat;
-  float valMax = tempValFloat;
-  float valRange = 0;
+  // float tempValFloat = float(tempVal);
+  // float valSum = tempValFloat;
+  // float valMin = tempValFloat;
+  // float valMax = tempValFloat;
+  // float valRange = 0;
+  // float valAverage;
+  half_float::half valSum = tempVal;
+  half_float::half valMin = tempVal;
+  half_float::half valMax = tempVal;
+  half_float::half valRange;
+  half_float::half valAverage;
 
   for (unsigned idx = 1; idx < numberOfVal; idx++) {
-    tempVal.data_ = valueBlock[idx];
-    tempValFloat = float(tempVal);
-    valSum += tempValFloat;
-    if (tempValFloat < valMin) {
-      valMin = tempValFloat;
-    } else if (tempValFloat > valMax) {
-      valMax = tempValFloat;
+    // tempVal.data_ = valueBlock[idx];
+    tempVal.data_ = (valueBlock[idx] >> 7) << 7; // Khoa, 2023/02/20, take only 9 bits out of 16 bits
+    // tempValFloat = float(tempVal);
+    // valSum += tempValFloat;
+    // if (tempValFloat < valMin) {
+    //   valMin = tempValFloat;
+    // } else if (tempValFloat > valMax) {
+    //   valMax = tempValFloat;
+    // }
+    valSum += tempVal;
+    if (tempVal < valMin) {
+      valMin = tempVal;
+    } else if (tempVal > valMax) {
+      valMax = tempVal;
     }
   }
   valRange = valMax - valMin;
   
-  float valAverage = (valSum/numberOfVal);
+  valAverage = (valSum / numberOfVal);
+
   bitset<64> binarizedBlock;
   for (unsigned idx = 0; idx < numberOfVal; idx++) {
     tempVal.data_ = valueBlock[idx];
-    tempValFloat = float(tempVal);
-    if (tempValFloat > valAverage) {
+    // tempValFloat = float(tempVal);
+    // if (tempValFloat > valAverage) {
+    // if (tempVal > valAverage) {
+    if (tempVal < 0) {
       binarizedBlock[idx] = true;
     } else {
       binarizedBlock[idx] = false;
     }
   }
 
-  approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valAverage << valRange << static_cast<uint32_t>(binarizedBlock.to_ullong()) ;
+  
+  // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valAverage << "_" << valRange << "_" << static_cast<uint32_t>(binarizedBlock.to_ullong()) ; // Khoa, 2023/02/17
+
+  // union {
+  //   float f;
+  //   uint32_t u;
+  // } valAverage_u32 = { .f = valAverage };
+  // union {
+  //   float f;
+  //   uint32_t u;
+  // } valRange_u32 = { .f = valRange };
+
+  // approxResult << std::setfill('0') <<  std::hex << std::setw(8) << valAverage_u32.u << "_" << valRange_u32.u << "_" << static_cast<uint32_t>(binarizedBlock.to_ullong()) ;
+
+  // valAverage = valSum / numberOfVal;
+  // Khoa, 2023/02/22
+  valAverage.data_ = ((valAverage.data_ >> 7 ) << 7); // clear least significant 7 bits, i.e., takes only 9 bits
+  valRange.data_ = ((valRange.data_ >> 7) << 7);
+  approxResult << valAverage << "," << valRange << "," << std::setfill('0') <<  std::hex << std::setw(4) << "0x" << static_cast<uint32_t>(binarizedBlock.to_ullong()) ; // Khoa, 2023/02/20 
+  // approxResult << std::setfill('0') <<  std::hex << std::setw(4) << valAverage.data_ << "," << valRange.data_ << "," << static_cast<uint32_t>(binarizedBlock.to_ullong()) ; // Khoa, 2023/02/20 
   
   return approxResult.str();
 }
@@ -546,6 +609,10 @@ InterconnectInterface* InterconnectInterface::New(const char* const config_file)
   icnt_interface->totalReadRequestWaitTimeAtMC = 0;
   icnt_interface->totalAllRequestWaitTimeAtMC = 0;
   icnt_interface->totalReplyWaitTimeAtMC = 0;
+
+  icnt_interface->totalReadRoundTripTime_ts1 = 0; // Khoa, 2023/03
+  icnt_interface->totalReadRoundTripTime_init = 0;
+
   icnt_interface->totalReadRequest = 0;
   icnt_interface->totalWriteRequest = 0;
   icnt_interface->totalReadReply_MC = 0;
@@ -871,6 +938,9 @@ if (packet_type == Flit::READ_REPLY) {
 } else if (packet_type == Flit::READ_REQUEST) {
   totalReadRequest++; //  == readRequestPushCount ?
   readRequestPushCount++;
+
+  mf->time_ReadRequestInit = _traffic_manager->getTime();
+  
 } else if (packet_type == Flit::WRITE_REQUEST) {
   totalWriteRequest++;
   writeRequestPushCount++;
@@ -996,12 +1066,40 @@ std::string exactDataKey;
 std::string dataKey;
 dataKey = _traffic_manager->makeDataKey(mf, exactDataKey);
 
+std::string dataKey_0 = _traffic_manager->makeDataKey_Approx(mf, 2, 0xFC00);
+std::string dataKey_1 = _traffic_manager->makeDataKey_Approx_Average(mf, 2, 0);
+std::string dataKey_2 = _traffic_manager->makeDataKey_Approx_Average(mf, 2, 1);
+
 if (dataKey != "") {
+
+
+  
+
   ////// characterization section
   if (packet_type == Flit::READ_REQUEST) {
+    
+    ////// address info section
+    if(addressInfo.count(my_addr)) {
+      addressInfo[my_addr].accessingShaders.insert(input_icntID);
+
+    } else {
+      addressInfoItem tAddressInfoItem;
+      tAddressInfoItem.approxDataKey = dataKey_2;
+      tAddressInfoItem.destMC = output_icntID;
+      tAddressInfoItem.homebase = getHomebase(my_addr);
+      tAddressInfoItem.accessingShaders.insert(input_icntID);
+
+      addressInfo[my_addr] = tAddressInfoItem;
+    }
+    
+    //////
 
     sameMC_SameContent_DifferentAddresses[output_icntID][exactDataKey].insert(my_addr);
     sameMC_ApproxContent_DifferentAddresses[output_icntID][dataKey].insert(my_addr);
+    
+    sameMC_ApproxContent_DifferentAddresses_0[output_icntID][dataKey_0].insert(my_addr);
+    sameMC_ApproxContent_DifferentAddresses_1[output_icntID][dataKey_1].insert(my_addr);
+    sameMC_ApproxContent_DifferentAddresses_2[output_icntID][dataKey_2].insert(my_addr);
 
     contentAddressMC[dataKey][my_addr].insert(output_icntID); // old
     contentMCAddress[dataKey][output_icntID].insert(my_addr); // old
@@ -1389,6 +1487,10 @@ void* InterconnectInterface::Pop(unsigned deviceID, unsigned subnet, long long u
       writeRequestPopCount++;
     } else if (mft->get_type() == READ_REPLY) {
       readReplyPopCount++;
+      
+      // Khoa, 2023/03
+      totalReadRoundTripTime_ts1 += (_traffic_manager->getTime() - mft->get_timestamp());
+      totalReadRoundTripTime_init += (_traffic_manager->getTime() - mft->time_ReadRequestInit);
     } else if (mft->get_type() == WRITE_ACK) {
       writeReplyPopCount++;
     }
@@ -1410,26 +1512,133 @@ void* InterconnectInterface::Pop(unsigned deviceID, unsigned subnet, long long u
 // Khoa
 void InterconnectInterface::printLUT() {
 
-FILE *resOutFile_haw = fopen("testHopsAndWaittime_.csv", "a");
-// printf("TOTAL PACKET HOPS COUNT:%u\n", totalPacketHopsCount);
-fprintf(resOutFile_haw,
-  "%u,%u,,%u,%u,,%u,%u,%u,_",
-    totalReadRequestWaitTimeAtMC, totalReadRequest,
-    totalReplyWaitTimeAtMC, totalReadReply_MC, totalReadReply_peer,
-    totalWriteRequest, 
-    totalAllRequestWaitTimeAtMC
-);
-fprintf(resOutFile_haw,
-  ",%u,%u,%u,%u,_,%u,%u,%u,%u,wrong_space_count:%u\n",
-    totalPacketHopsCount, totalHops_ReadRequest, totalHops_ReadReply, totalHops_Update,
-    totalLUTRead_Homebase,
-    totalLUTWrite_Homebase,
-    totalLUTRead_MC,
-    totalLUTWrite_MC,
-    wrongSpaceCount
-);
+  FILE *resOutFile_linkUtil = fopen("testLinkUtilization_.csv", "a");
+  fprintf(resOutFile_linkUtil,
+    "Num Of Nodes:,%d,,Num of Routers:,%d,,Num of Classes:,%d\n",
+      _net[0]->NumNodes(),
+      _net[0]->NumRouters(),
+      _net[0]->GetRouter(0)->_classes
+  );
+  for (int idx1 = 0; idx1 < _subnets; idx1++) {
+    fprintf(resOutFile_linkUtil,
+      "Subnet:,%d\n",
+        idx1
+    );
+    for (int idx2 = 0; idx2 < _net[idx1]->NumRouters(); idx2++) {
+      Router * tRouter = _net[idx1]->GetRouter(idx2);
+      
+      for (int idx3i = 0; idx3i < tRouter->_inputs; idx3i++) {
+        for (int idx4i = 0; idx4i < tRouter->_classes; idx4i++) {
+          fprintf(resOutFile_linkUtil,
+            "%03d,in,%d,%d,_,%d,%d\n",
+              tRouter->_id,
+              idx3i,
+              idx4i,
+              tRouter->_input_channels[idx3i]->getActive(idx4i),
+              tRouter->_input_channels[idx3i]->getIdle()
+          );
+        }  
+      }
+      
+      for (int idx3o = 0; idx3o < tRouter->_outputs; idx3o++) {
+        for (int idx4o = 0; idx4o < tRouter->_classes; idx4o++) {
+          fprintf(resOutFile_linkUtil,
+            "%03d,out,%d,%d,_,%d,%d\n",
+              tRouter->_id,
+              idx3o,
+              idx4o,
+              tRouter->_output_channels[idx3o]->getActive(idx4o),
+              tRouter->_output_channels[idx3o]->getIdle()
+          );
+        }  
+      }
+      fflush(resOutFile_linkUtil);
+    } // end for num of routers/nodes
 
-fclose(resOutFile_haw);
+    // for (int idx2 = 0; idx2 < _net[idx1]->NumChannels(); idx2++) {
+    //   fprintf(resOutFile_linkUtil,
+    //     "%d,%d,%d\n",
+    //       idx2,
+    //       _net[idx1]->GetChannels()[idx2]->getActive(0),
+    //       _net[idx1]->GetChannels()[idx2]->getIdle()
+    //   );
+    // }
+
+  } // end for subnets
+  fprintf(resOutFile_linkUtil,
+    "----------------------------------------------------------------\n"
+  );
+  fclose(resOutFile_linkUtil);
+  
+
+  FILE *resOutFile_trt = fopen("testReadRoundTripTime_.csv", "a");
+  fprintf(resOutFile_trt,
+    "%llu,%llu,,%u,%u",
+      totalReadRoundTripTime_ts1,
+      totalReadRoundTripTime_init,
+      readRequestPushCount, 
+      readReplyPushCount
+  );
+  fclose(resOutFile_trt);
+
+  // Khoa, 2023/03/05
+
+  // std::map <long long unsigned, addressInfoItem>::iterator iter_addressInfo;
+  // std::set <unsigned>::iterator iter_accessor;
+
+  // FILE *resOutFile_addressInfo = fopen("testAddressInfo_.csv", "a");
+  
+  // for (iter_addressInfo = addressInfo.begin();
+  //   iter_addressInfo != addressInfo.end();
+  //   iter_addressInfo++) {
+    
+  //   fprintf(resOutFile_addressInfo,
+  //     "0x%llx,%s,%03u,%03u",
+  //       iter_addressInfo->first,
+  //       iter_addressInfo->second.approxDataKey.c_str(),
+  //       iter_addressInfo->second.homebase,
+  //       iter_addressInfo->second.destMC
+  //   );
+
+  //   for (iter_accessor = iter_addressInfo->second.accessingShaders.begin();
+  //     iter_accessor != iter_addressInfo->second.accessingShaders.end();
+  //     iter_accessor++) {
+  //       fprintf(resOutFile_addressInfo,
+  //         ",%03u",
+  //         *iter_accessor
+  //       );
+  //   }
+
+  //   fprintf(resOutFile_addressInfo,
+  //     "\n");
+
+  //   fflush(resOutFile_addressInfo);  
+  // }
+
+  // fclose(resOutFile_addressInfo);
+
+
+
+  FILE *resOutFile_haw = fopen("testHopsAndWaittime_.csv", "a");
+  // printf("TOTAL PACKET HOPS COUNT:%u\n", totalPacketHopsCount);
+  fprintf(resOutFile_haw,
+    "%u,%u,,%u,%u,,%u,%u,%u,_",
+      totalReadRequestWaitTimeAtMC, totalReadRequest,
+      totalReplyWaitTimeAtMC, totalReadReply_MC, totalReadReply_peer,
+      totalWriteRequest, 
+      totalAllRequestWaitTimeAtMC
+  );
+  fprintf(resOutFile_haw,
+    ",%u,%u,%u,%u,_,%u,%u,%u,%u,wrong_space_count:%u\n",
+      totalPacketHopsCount, totalHops_ReadRequest, totalHops_ReadReply, totalHops_Update,
+      totalLUTRead_Homebase,
+      totalLUTWrite_Homebase,
+      totalLUTRead_MC,
+      totalLUTWrite_MC,
+      wrongSpaceCount
+  );
+
+  fclose(resOutFile_haw);
 
 
 
@@ -1911,6 +2120,13 @@ void InterconnectInterface::printLUT1() {
   unsigned numOfAddressesWithAlias_approx = 0;
   unsigned numOfAddressesWithoutAlias_approx = 0;
 
+  unsigned numOfAddressesWithAlias_approx_0 = 0;
+  unsigned numOfAddressesWithoutAlias_approx_0 = 0;
+  unsigned numOfAddressesWithAlias_approx_1 = 0;
+  unsigned numOfAddressesWithoutAlias_approx_1 = 0;
+  unsigned numOfAddressesWithAlias_approx_2 = 0;
+  unsigned numOfAddressesWithoutAlias_approx_2 = 0;
+
   std::unordered_map < unsigned, unordered_map < std::string, set < long long unsigned > > >::iterator itrt_MCContentAddresses;
   unordered_map < std::string, set < long long unsigned > >::iterator itrt_ContentAddresses;
   for ( itrt_MCContentAddresses = sameMC_SameContent_DifferentAddresses.begin();
@@ -1936,6 +2152,48 @@ void InterconnectInterface::printLUT1() {
         numOfAddressesWithAlias_approx += itrt_ContentAddresses->second.size();
       } else {
         numOfAddressesWithoutAlias_approx++;
+      }
+    }
+  }
+
+  for ( itrt_MCContentAddresses = sameMC_ApproxContent_DifferentAddresses_0.begin();
+        itrt_MCContentAddresses != sameMC_ApproxContent_DifferentAddresses_0.end();
+        itrt_MCContentAddresses++ ) {
+    for ( itrt_ContentAddresses = itrt_MCContentAddresses->second.begin();
+          itrt_ContentAddresses != itrt_MCContentAddresses->second.end();
+          itrt_ContentAddresses++ ) {
+      if (itrt_ContentAddresses->second.size() > 1) {
+        numOfAddressesWithAlias_approx_0 += itrt_ContentAddresses->second.size();
+      } else {
+        numOfAddressesWithoutAlias_approx_0++;
+      }
+    }
+  }
+
+  for ( itrt_MCContentAddresses = sameMC_ApproxContent_DifferentAddresses_1.begin();
+        itrt_MCContentAddresses != sameMC_ApproxContent_DifferentAddresses_1.end();
+        itrt_MCContentAddresses++ ) {
+    for ( itrt_ContentAddresses = itrt_MCContentAddresses->second.begin();
+          itrt_ContentAddresses != itrt_MCContentAddresses->second.end();
+          itrt_ContentAddresses++ ) {
+      if (itrt_ContentAddresses->second.size() > 1) {
+        numOfAddressesWithAlias_approx_1 += itrt_ContentAddresses->second.size();
+      } else {
+        numOfAddressesWithoutAlias_approx_1++;
+      }
+    }
+  }
+
+  for ( itrt_MCContentAddresses = sameMC_ApproxContent_DifferentAddresses_2.begin();
+        itrt_MCContentAddresses != sameMC_ApproxContent_DifferentAddresses_2.end();
+        itrt_MCContentAddresses++ ) {
+    for ( itrt_ContentAddresses = itrt_MCContentAddresses->second.begin();
+          itrt_ContentAddresses != itrt_MCContentAddresses->second.end();
+          itrt_ContentAddresses++ ) {
+      if (itrt_ContentAddresses->second.size() > 1) {
+        numOfAddressesWithAlias_approx_2 += itrt_ContentAddresses->second.size();
+      } else {
+        numOfAddressesWithoutAlias_approx_2++;
       }
     }
   }
@@ -1968,11 +2226,17 @@ void InterconnectInterface::printLUT1() {
       numOfDistinctContent, numOfDistinctContent2, numOfDistinctContent_approx, numOfDistinctContent_approx2
   );
   fprintf(resOutFile_ch, 
-    ",_,%u,%u,%u,%u\n", 
+    ",_,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n", 
       numOfAddressesWithAlias,
       numOfAddressesWithoutAlias,
       numOfAddressesWithAlias_approx,
-      numOfAddressesWithoutAlias_approx
+      numOfAddressesWithoutAlias_approx,
+      numOfAddressesWithAlias_approx_0,
+      numOfAddressesWithoutAlias_approx_0,
+      numOfAddressesWithAlias_approx_1,
+      numOfAddressesWithoutAlias_approx_1,
+      numOfAddressesWithAlias_approx_2,
+      numOfAddressesWithoutAlias_approx_2
   );
   fclose(resOutFile_ch);
 //// end characterization

@@ -144,8 +144,12 @@ class mem_fetch {
 
   long long unsigned time_RequestReceived;
   long long unsigned time_RequestInMCQueue;
+  long long unsigned time_RequestAtHeadOfMCQueue;
+
   long long unsigned time_ReadReplyInMCQueue;
   long long unsigned time_ReadReplySent;
+
+  long long unsigned time_ReadRequestInit; // Khoa, 2022/03/
 ////
 
 

@@ -99,12 +99,15 @@ write_reply_end_vc = 3;
 
 
 
-lut_limit_cluster = 0;
-lut_limit_mc = 0;
-address_per_entry_mc = 0;
+lut_limit_cluster = 1000;
+lut_limit_mc = 300;
+address_per_entry_mc = 4;
 
-mc_serve_new_address_same_content = 1;
-use_approx_sharing = 0;
 use_address_sharing_only = 0;
+mc_serve_new_address_same_content = 0;
+use_approx_sharing = 1;
+use_approx_method = 2;
+
+//num_coalesced_block = 8;
 
 // end

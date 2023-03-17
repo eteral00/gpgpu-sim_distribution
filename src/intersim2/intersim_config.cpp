@@ -70,4 +70,6 @@ IntersimConfig::IntersimConfig()
   _int_map["use_approx_sharing"] = 0;
   _int_map["use_address_sharing_only"] = 0;
 
+  _int_map["use_approx_method"] = 0;
+
 }

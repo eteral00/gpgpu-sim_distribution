@@ -490,8 +490,11 @@ bool GPUTrafficManager::reroutePacket(unsigned curIcntID, Flit* f) {
             //   sharingAddress = NoCLUT_cluster[curIcntID][blockAddress]._rootAddress;
             //   mft->redirectedAddress = sharingAddress; // for tracking
               
-            //   //// modifying actual data in memory and reload
-            //   g_icnt_interface->changeMfData(mft, f->src); // for approx content only
+            //   if (_use_approx_sharing) {
+            //     //// modifying actual data in memory and reload
+            //     g_icnt_interface->changeMfData(mft, f->src); // for approx content only
+            //   } // APPROX CRITICAL
+              
 
             //   //// update LUT (opportunistic way):  for homebase of root address
             //   homebaseIcntID = g_icnt_interface->getHomebase(sharingAddress);
@@ -661,7 +664,21 @@ std::string GPUTrafficManager::makeDataKey(mem_fetch* mf, std::string &exactData
   if (_use_approx_sharing == 0) {
     return strStream.str();
   } else {
-    return makeDataKey_Approx(mf, 2, 0xFC00);
+    switch (_use_approx_method) {
+      case 0:
+        return makeDataKey_Approx(mf, 2, 0xFC00);
+        break;
+      case 1:
+        return makeDataKey_Approx_Average(mf, 2, 0);
+        break;
+      case 2:
+        return makeDataKey_Approx_Average(mf, 2, 1);
+        break;
+      default:
+        return strStream.str();
+        break;
+    }
+    
   }
   
 }
@@ -732,6 +749,59 @@ std::string GPUTrafficManager::makeDataKey_Approx(mem_fetch* mf, unsigned wordBy
   return dataKey;
 }
 
+
+std::string GPUTrafficManager::makeDataKey_Approx_Average(mem_fetch* mf, unsigned wordByteSize = 2, unsigned binaryMode = 0) {
+  std::string dataKey;
+  unsigned long long int my_addr;
+  my_addr = mf->get_addr();
+  memory_space *mem = NULL;
+  memory_space_t m_m_space = mf->get_inst().space;
+  // memory_space_t m_m_space = mf->get_inst().whichspace(my_addr);
+  
+  unsigned my_access_size = mf->get_access_size();
+  char * tBuffer = new char[my_access_size+1];
+
+  if (mf->get_w_inst()->decode_space(m_m_space, mem, my_addr)) {
+    if (m_m_space == global_space) {
+      mem->read(my_addr, my_access_size, tBuffer);
+    } else {
+      memset(tBuffer, 0xf0, my_access_size);
+    }
+
+    tBuffer[my_access_size] = '\0';
+
+    // if (wordByteSize == 2) {
+    //   uint16_t * packet_data_hex = new uint16_t[my_access_size/wordByteSize];
+    // } else if (wordByteSize == 4) {
+    //   uint32_t * packet_data_hex = new uint32_t[my_access_size/wordByteSize];
+    // } else {
+    //   unsigned char * packet_data_hex = new unsigned char[my_access_size];
+    // }
+    
+    uint16_t * packet_data_hex = new uint16_t[my_access_size/wordByteSize];
+    vector< half_float::half > packet_data_half;
+    packet_data_half.resize(my_access_size/wordByteSize);
+    memcpy( (void*)packet_data_hex, (void*)tBuffer, my_access_size );
+
+    //// approx average + range
+    if (binaryMode == 0) {
+      dataKey = g_icnt_interface->approx_Average(packet_data_hex, (my_access_size/wordByteSize));
+    } else if (binaryMode == 1) {
+      dataKey = g_icnt_interface->approx_AverageBinary(packet_data_hex, (my_access_size/wordByteSize));
+    }
+    
+    ////
+
+    delete []packet_data_hex;
+  
+  } else {
+    dataKey = "";
+  }
+
+  delete []tBuffer;
+
+  return dataKey;
+}
 
 
 bool GPUTrafficManager::compareApprox(mem_fetch* mf, long long unsigned targetAddress) {
@@ -854,6 +924,7 @@ GPUTrafficManager::GPUTrafficManager( const Configuration &config, const vector<
   _addressesPerMPEntry = config.GetInt("address_per_entry_mc") ;
   _contentSharing_MC_serve_newAddress = config.GetInt("mc_serve_new_address_same_content") ;
   _use_approx_sharing = config.GetInt("use_approx_sharing") ;
+  _use_approx_method = config.GetInt("use_approx_method") ;
   _use_address_sharing_only = config.GetInt("use_address_sharing_only") ;
 
   cout << "TEST :: ENTRY LIMIT CLUSTER: " << _entryLimit_cluster << "\n" ;

@@ -302,6 +302,7 @@ public:
   bool _contentSharing_MC_serve_newAddress;
   bool _use_address_sharing_only;
   unsigned _use_approx_sharing;
+  unsigned _use_approx_method;
   
 
   InterconnectInterface* _m_icnt_i; // 
@@ -388,6 +389,7 @@ public:
 
   std::string makeDataKey(mem_fetch* mf, std::string & exactDataKey);
   std::string makeDataKey_Approx(mem_fetch* mf, unsigned wordByteSize, unsigned bitMask);
+  std::string makeDataKey_Approx_Average(mem_fetch* mf, unsigned wordByteSize, unsigned binaryMode);
 
   bool compareApprox(mem_fetch* mf, long long unsigned targetAddress);
 

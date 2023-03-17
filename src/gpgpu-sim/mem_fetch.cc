@@ -82,9 +82,12 @@ mem_fetch::mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
 
   time_RequestReceived = 0;
   time_RequestInMCQueue = 0;
+  time_RequestAtHeadOfMCQueue = 0;
+  
   time_ReadReplyInMCQueue = 0;
   time_ReadReplySent = 0;
   
+  time_ReadRequestInit = 0; // Khoa, 2022/03/
 }
 
 mem_fetch::~mem_fetch() { m_status = MEM_FETCH_DELETED; }

@@ -1058,6 +1058,9 @@ void gpgpu_sim::update_stats() {
   m_total_cta_launched = 0;
   gpu_completed_cta = 0;
   gpu_occupancy = occupancy_stats();
+
+
+  totalReadRequestWaitTimeInIcntL2Queue = 0; // Khoa, 2023/02/14
 }
 
 void gpgpu_sim::print_stats() {
@@ -1070,7 +1073,13 @@ void gpgpu_sim::print_stats() {
   // sim_result();
   // printf("----------------------------END-of-NOX-DEAILS--------------------------\n" );
   
-  
+  FILE *resOutFile_waitTime = fopen("testWaitTimeIcntL2Queue_.csv", "a");
+  fprintf(resOutFile_waitTime, ",%llu\n", 
+    totalReadRequestWaitTimeInIcntL2Queue
+    );
+  fclose(resOutFile_waitTime); 
+
+
   
   gpgpu_ctx->stats->ptx_file_line_stats_write_file();
   gpu_print_stat();

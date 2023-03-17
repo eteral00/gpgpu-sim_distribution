@@ -202,6 +202,10 @@ public:
   long long unsigned totalReadRequestWaitTimeAtMC;
   long long unsigned totalAllRequestWaitTimeAtMC;
   long long unsigned totalReplyWaitTimeAtMC;
+
+  long long unsigned totalReadRoundTripTime_ts1; // Khoa, 2023/03
+  long long unsigned totalReadRoundTripTime_init;
+  
   unsigned totalReadRequest;
   unsigned totalWriteRequest;
   unsigned totalReadReply_MC;
@@ -240,6 +244,9 @@ public:
   std::unordered_map < unsigned, unordered_map < std::string, set < long long unsigned > > > sameMC_ApproxContent_DifferentAddresses;
   std::unordered_map < unsigned, unordered_map < std::string, long long unsigned > > sameMC_ApproxContent_LastAccessTime; //
   std::unordered_map < unsigned, unordered_map < std::string, set < unsigned > > > sameMC_ApproxContent_AtMultiClusters; //
+  std::unordered_map < unsigned, unordered_map < std::string, set < long long unsigned > > > sameMC_ApproxContent_DifferentAddresses_0; //
+  std::unordered_map < unsigned, unordered_map < std::string, set < long long unsigned > > > sameMC_ApproxContent_DifferentAddresses_1; //
+  std::unordered_map < unsigned, unordered_map < std::string, set < long long unsigned > > > sameMC_ApproxContent_DifferentAddresses_2; //
 
 
   //// tracing group, for write back case 
@@ -258,6 +265,15 @@ public:
   std::set < long long unsigned > repeatedAccessAddresses_ApproxContent;
   std::set < long long unsigned > repeatedAccessAddresses_ApproxContent_100;
   std::set < long long unsigned > repeatedAccessAddresses_ApproxContent_200;
+
+
+  struct addressInfoItem {
+    std::string approxDataKey;
+    unsigned destMC;
+    unsigned homebase;
+    std::set <unsigned> accessingShaders;
+  };
+  std::map <long long unsigned, addressInfoItem> addressInfo;
   ////
 
 

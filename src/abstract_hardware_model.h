@@ -635,6 +635,10 @@ class gpgpu_t {
 
   virtual ~gpgpu_t() {}
 
+
+  long long unsigned totalReadRequestWaitTimeInIcntL2Queue; // Khoa, 2023/01
+
+  
  protected:
   const gpgpu_functional_sim_config &m_function_model_config;
   FILE *ptx_inst_debug_file;

@@ -1773,28 +1773,28 @@ if (inst.comMemOp == 2 /* inst.op == LOAD_OP || inst.op == STORE_OP */ ) {
   inst.completed(m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
 
 //// Khoa, 2022/07
-  FILE *resOutFile = fopen("testInstCompleted_.csv", "a");
+  // FILE *resOutFile = fopen("testInstCompleted_.csv", "a");
     
-  fprintf(resOutFile, "%u,%llu,%llu,%u__%u,%u,%u,0x%08llx,%d||,%d,%d,%d,%u,%llu,_,%#010llx,%u\n",
-    inst.get_uid(),
-    m_gpu->gpu_sim_cycle,
-    m_gpu->gpu_tot_sim_cycle,
-    m_sid, 
-    m_tpc, 
-    inst.warp_id(),
-    inst.dynamic_warp_id(),
-    inst.pc,
-    inst.op,
-    inst.space,
-    inst.data_size,
-    inst.latency,
-    inst.get_schd_id(),
-    //inst.m_scheduler_id
-    inst.issue_cycle,
-    inst.get_addr(0),
-    inst.comMemOp
-    );
-  fclose(resOutFile);
+  // fprintf(resOutFile, "%u,%llu,%llu,%u__%u,%u,%u,0x%08llx,%d||,%d,%d,%d,%u,%llu,_,%#010llx,%u\n",
+  //   inst.get_uid(),
+  //   m_gpu->gpu_sim_cycle,
+  //   m_gpu->gpu_tot_sim_cycle,
+  //   m_sid, 
+  //   m_tpc, 
+  //   inst.warp_id(),
+  //   inst.dynamic_warp_id(),
+  //   inst.pc,
+  //   inst.op,
+  //   inst.space,
+  //   inst.data_size,
+  //   inst.latency,
+  //   inst.get_schd_id(),
+  //   //inst.m_scheduler_id
+  //   inst.issue_cycle,
+  //   inst.get_addr(0),
+  //   inst.comMemOp
+  //   );
+  // fclose(resOutFile);
 ////
 }
 
@@ -4518,17 +4518,17 @@ void simt_core_cluster::icnt_cycle() {
 
       bufferIsFull = true;
 
-FILE *resOutFile_bufferFull = fopen("testIcntCycleClusterBufferFull_.csv", "a");  
-fprintf(resOutFile_bufferFull, "%llu,%llu,__%u,%u,%u | %u,%u\n", 
-  m_gpu->gpu_sim_cycle,
-  m_gpu->gpu_tot_sim_cycle,
-  m_cluster_id,
-  peerReplySentCount,
-  peerReplyReceivedCount1,
-  peerReplyReceivedCount2,
-  peerRequestReceivedCount
-  );
-fclose(resOutFile_bufferFull);
+      // FILE *resOutFile_bufferFull = fopen("testIcntCycleClusterBufferFull_.csv", "a");  
+      // fprintf(resOutFile_bufferFull, "%llu,%llu,__%u,%u,%u | %u,%u\n", 
+      //   m_gpu->gpu_sim_cycle,
+      //   m_gpu->gpu_tot_sim_cycle,
+      //   m_cluster_id,
+      //   peerReplySentCount,
+      //   peerReplyReceivedCount1,
+      //   peerReplyReceivedCount2,
+      //   peerRequestReceivedCount
+      //   );
+      // fclose(resOutFile_bufferFull);
 
     }
   }
