@@ -82,14 +82,14 @@ write_reply_subnet = 1;
 
 // vcs, separated for each subnet
 read_request_begin_vc = 0;
-read_request_end_vc = 1;
-write_request_begin_vc = 1;
-write_request_end_vc = 1;
+read_request_end_vc = 0;
+write_request_begin_vc = 3;
+write_request_end_vc = 3;
 
-probe_begin_vc = 2;
-probe_end_vc = 2;
-redirect_begin_vc = 3;
-redirect_end_vc = 3;
+probe_begin_vc = 1;
+probe_end_vc = 1;
+redirect_begin_vc = 2;
+redirect_end_vc = 2;
 
 
 read_reply_begin_vc = 0;

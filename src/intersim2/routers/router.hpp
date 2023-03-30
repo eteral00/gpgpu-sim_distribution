@@ -70,7 +70,12 @@ public:
 
   int _crossbar_delay;
   int _credit_delay;
-  
+  //// Khoa, 2023/03/29
+  long long unsigned _crossbarUseCounter;
+  long long unsigned _vcBufferReadCounter;
+  long long unsigned _vcBufferWriteCounter;
+  ////
+    
   vector<FlitChannel *>   _input_channels;
   vector<CreditChannel *> _input_credits;
   vector<FlitChannel *>   _output_channels;

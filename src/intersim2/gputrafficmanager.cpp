@@ -946,6 +946,10 @@ GPUTrafficManager::GPUTrafficManager( const Configuration &config, const vector<
   printCounter = 0;
   debugCounter = 0;
   printDeadlock = 0;
+
+  // Khoa, 2023/03/28
+  redirectedReadReq.resize(_nodes); 
+  _majorDim = (unsigned)sqrt((unsigned)_nodes);
   ////
 }
 
@@ -1273,7 +1277,7 @@ unsigned long long mfBlAddress = mf->get_addr();
               homebaseIcntID = g_icnt_interface->getHomebase(mf->redirectedAddress);
               NoCLUT_cluster[homebaseIcntID][mf->redirectedAddress].changeNode(packet_destination, curTime, source);
               enforceLUTEntryLimit_cluster(homebaseIcntID); 
-              g_icnt_interface->totalHops_Update += computeManhDistance(8, source, homebaseIcntID);
+              g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
             } // Khoa, 2023/02/27
 
             if (g_icnt_interface->getDeviceID(source) < _n_shader) {
@@ -1284,7 +1288,7 @@ unsigned long long mfBlAddress = mf->get_addr();
               homebaseIcntID = g_icnt_interface->getHomebase(mfBlAddress);
               NoCLUT_cluster[homebaseIcntID][mfBlAddress].changeNode(packet_destination, curTime, source); // packet_destination is requester, source is peer cluster
               enforceLUTEntryLimit_cluster(homebaseIcntID); // Khoa, 2023/02
-              g_icnt_interface->totalHops_Update += computeManhDistance(8, source, homebaseIcntID);
+              g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
 
             } else {
               //// source is MC
@@ -1294,12 +1298,12 @@ unsigned long long mfBlAddress = mf->get_addr();
               homebaseIcntID = g_icnt_interface->getHomebase(mfBlAddress);
               NoCLUT_cluster[homebaseIcntID][mfBlAddress].insertSharingInfo(packet_destination, curTime, source); // packet_destination is requester, source is MC
               enforceLUTEntryLimit_cluster(homebaseIcntID); // Khoa, 2023/02
-              g_icnt_interface->totalHops_Update += computeManhDistance(8, source, homebaseIcntID);
+              g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
 
               //// Khoa, 2023/02/05
               if ( _use_address_sharing_only == 0) {
                 if (dataKey != "") {
-                  if (checkLUTEntry_memPart(source, dataKey)) {
+                  if ( checkLUTEntry_memPart(source, dataKey)) {
                     //// found a previously accessed addresses with approx content
                     if (_contentSharing_MC_serve_newAddress == 0) {
                       //// 2nd design: redirect READ request to last sharer (likely, data will be approx)
@@ -1311,17 +1315,21 @@ unsigned long long mfBlAddress = mf->get_addr();
                       
                       f->redirectedFlag = true;
                       f->isProbeFlag = false;
+
+                      //// modifying actual data in memory and reload
+                      //// only used if first access of an address is also redirected by MC, or replied with approx data
+                      //// not used when first access of an address is replied with exact data
+                      mf->redirectedAddress = NoCLUT_memPart[source][dataKey]._lastSharingAddress; // set redirect address
+                      if (_use_approx_sharing) {
+                        g_icnt_interface->changeMfData(mf, f->src);
+                      }
+                      ////
+                      // Khoa, 2032/03/28
+                      redirectedReadReq[source]++;
+                    } else {
+                      g_icnt_interface->totalReadReply_MC++;
                     }
                     
-                    //// modifying actual data in memory and reload
-                    //// only used if first access of an address is also redirected by MC, or replied with approx data
-                    //// not used when first access of an address is replied with exact data
-                    mf->redirectedAddress = NoCLUT_memPart[source][dataKey]._lastSharingAddress; // set redirect address
-                    if (_use_approx_sharing) {
-                      g_icnt_interface->changeMfData(mf, f->src);
-                    }
-                    ////
-
                     //// update multi roots
                     //// update homebases of previous sharing addresses
                     unordered_map< long long unsigned, long long unsigned >::iterator itrt_memPart;
@@ -1334,7 +1342,7 @@ unsigned long long mfBlAddress = mf->get_addr();
 
                       //// current access's  block address will be new sharing address
                       //// f's source, i.e., the requester, will be the new sharer
-                      g_icnt_interface->totalHops_Update += computeManhDistance(8, source, homebaseIcntID); // source = MC IcntId
+                      g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID); // source = MC IcntId
                       if (_contentSharing_MC_serve_newAddress == 0) { // fix update bug
                         NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(mfBlAddress, f->src, curTime, source); // f-> src = requester, source = MC IcntId
                       } else {
@@ -1345,8 +1353,11 @@ unsigned long long mfBlAddress = mf->get_addr();
                     }
 
                   } else {
-                    //// entry not found, add new entry
+                    //// entry not found, add new entry, 
                     add_LUT_entry_memPart(source, dataKey, packet_destination, mfBlAddress); // Khoa, 2023/02/05
+
+                    // MC serves data
+                    g_icnt_interface->totalReadReply_MC++;
                   } // end if (found LUT entry) else ()
                 } // end if (dataKey != "")
               } // end if (use address sharing only or use content sharing)
@@ -1398,7 +1409,7 @@ unsigned long long mfBlAddress = mf->get_addr();
         break;
       case age_based:
         // f->pri = numeric_limits<int>::max() - mf->get_timestamp(); // read reply inherit priority of its corresponding request
-        f->pri = numeric_limits<unsigned>::max() - (100 * (time + 1)) + computeManhDistance(8, f->src, f->dest); // give priority to long-distance packet
+        f->pri = numeric_limits<unsigned>::max() - (100 * (time + 1)) + computeManhDistance(_majorDim, f->src, f->dest); // give priority to long-distance packet
         // f->pri = numeric_limits<int>::max() - time;
         assert(f->pri >= 0);
         break;
@@ -2170,10 +2181,10 @@ long long unsigned LUTRecord_mP::enforceSharingLimit(long long unsigned curTime)
         unsigned homebaseIcntID = g_icnt_interface->getHomebase(oldestAddress);
         g_icnt_interface->_traffic_manager->removeLUTEntry_cluster(homebaseIcntID, oldestAddress);
         _sharingAddresses.erase(oldestAddress);
-        g_icnt_interface->totalLUTWrite_MC++;
+        // g_icnt_interface->totalLUTWrite_MC++; // Khoa, 2023/03/28, unnecessary, already ++ in chain of operations
       }
     }
-    g_icnt_interface->totalLUTRead_MC++;
+    // g_icnt_interface->totalLUTRead_MC++; // Khoa, 2023/03/28, unnecessary, already ++ in chain of operations
 
     return oldestAddress;
   }

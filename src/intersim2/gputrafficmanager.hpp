@@ -304,7 +304,8 @@ public:
   unsigned _use_approx_sharing;
   unsigned _use_approx_method;
   
-
+  std::vector<unsigned> redirectedReadReq;
+  unsigned _majorDim;
   InterconnectInterface* _m_icnt_i; // 
   // std::unordered_map<std::string, set<unsigned > > NoCLUT;
   // std::unordered_map<unsigned long long, set<unsigned > > NoCLUT_a;
