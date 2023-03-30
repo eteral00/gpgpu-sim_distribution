@@ -533,10 +533,16 @@ unsigned InterconnectInterface::getHomebase(long long unsigned address) {
   ////
 
   ////
-  unsigned idx0 = (address >> 8) & 0x3; // shift right 8 bits, then take 2 bits
-  unsigned idx1 = (address >> 10) & 0x3; // shift right 10 bits then take 2 bits
-  unsigned idx2 = (address >> 12) & 0x3; // shift right 12 bits then take 2 bits
-  addressTag = homebaseMap[idx0][idx1][idx2];
+  // unsigned idx0 = (address >> 8) & 0x3; // shift right 8 bits, then take 2 bits
+  // unsigned idx1 = (address >> 10) & 0x3; // shift right 10 bits then take 2 bits
+  // unsigned idx2 = (address >> 12) & 0x3; // shift right 12 bits then take 2 bits
+  // addressTag = homebaseMap[idx0][idx1][idx2];
+  // return addressTag; // including MCs as Homebases
+  addressTag = address >> 8; // shift right 8 bits
+  unsigned rowIdx = (addressTag & 0x3F) % _traffic_manager->_majorDim;
+  addressTag = address >> 14;
+  unsigned colIdx = (addressTag & 0x3F) % _traffic_manager->_majorDim;
+  addressTag = (rowIdx * _traffic_manager->_majorDim) + colIdx;
   return addressTag; // including MCs as Homebases
   ////
 
@@ -933,6 +939,8 @@ if (packet_type == Flit::READ_REPLY) {
     mf->time_ReadReplySent = _traffic_manager->getTime();
     totalReplyWaitTimeAtMC += (mf->time_ReadReplySent) - (mf->time_ReadReplyInMCQueue);
     totalReadReply_MC++;
+  } else {
+    totalReadReply_peer++;
   }
   readReplyPushCount++;
 } else if (packet_type == Flit::READ_REQUEST) {
@@ -1382,8 +1390,6 @@ if (dataKey != "") {
       // sameMC_SameContent_LastAccessTime[input_icntID][exactDataKey] = curTime;
       // sameMC_ApproxContent_LastAccessTime[input_icntID][dataKey] = curTime;
       // sameAddress_LastAccessTime[my_addr] = curTime;
-    } else {
-      totalReadReply_peer++;
     }
 
   } else if (packet_type == Flit::WRITE_REPLY) {
@@ -1448,16 +1454,16 @@ void* InterconnectInterface::Pop(unsigned deviceID, unsigned subnet, long long u
     // std::string exactDataKey;
     // std::string dataKey = _traffic_manager->makeDataKey(mft, exactDataKey);
 
-    if (mft->get_request_uid() == 49017) {
-      FILE * resOutFile_tracing = fopen("testPacketPop_.csv", "a");
-      fprintf(resOutFile_tracing, 
-        "%u,%u (%u)",
-          mft->get_request_uid(),
-          icntID,
-          deviceID
-      );
-      fclose(resOutFile_tracing);
-    }
+    // if (mft->get_request_uid() == 49017) {
+    //   FILE * resOutFile_tracing = fopen("testPacketPop_.csv", "a");
+    //   fprintf(resOutFile_tracing, 
+    //     "%u,%u (%u)",
+    //       mft->get_request_uid(),
+    //       icntID,
+    //       deviceID
+    //   );
+    //   fclose(resOutFile_tracing);
+    // }
 
     if (subnet == 0) {
       if (deviceID >= _n_shader) {
@@ -1512,63 +1518,81 @@ void* InterconnectInterface::Pop(unsigned deviceID, unsigned subnet, long long u
 // Khoa
 void InterconnectInterface::printLUT() {
 
-  FILE *resOutFile_linkUtil = fopen("testLinkUtilization_.csv", "a");
+  for (int idx1 = 0; idx1 < _subnets; idx1++) {
+  std::string filePath = "testLinkUtilization_subnet_" + std::to_string(idx1) + "_.csv";
+  // FILE *resOutFile_linkUtil = fopen("testLinkUtilization_.csv", "a");
+  FILE *resOutFile_linkUtil = fopen(filePath.c_str(), "a");
   fprintf(resOutFile_linkUtil,
-    "Num Of Nodes:,%d,,Num of Routers:,%d,,Num of Classes:,%d\n",
+    "Num Of Nodes:,%d,,Num of Routers:,%d,,Num of Classes:,%d,Subnet:,%d\n",
       _net[0]->NumNodes(),
       _net[0]->NumRouters(),
-      _net[0]->GetRouter(0)->_classes
+      _net[0]->GetRouter(0)->_classes,
+      idx1
   );
-  for (int idx1 = 0; idx1 < _subnets; idx1++) {
-    fprintf(resOutFile_linkUtil,
-      "Subnet:,%d\n",
-        idx1
+  std::string filePath2 = "testIcntPower_subnet_" + std::to_string(idx1) + "_.csv";
+  FILE *resOutFile_IcntPower = fopen(filePath2.c_str(), "a");
+  fprintf(resOutFile_IcntPower,
+    "Subnet:,%d,Num Of Nodes:,%d,,Num of Routers:,%d\n",
+      idx1,
+      _net[0]->NumNodes(),
+      _net[0]->NumRouters()
+  );
+  for (int idx2 = 0; idx2 < _net[idx1]->NumRouters(); idx2++) {
+    Router * tRouter = _net[idx1]->GetRouter(idx2);
+    
+    for (int idx3i = 0; idx3i < tRouter->_inputs; idx3i++) {
+      for (int idx4i = 0; idx4i < tRouter->_classes; idx4i++) {
+        fprintf(resOutFile_linkUtil,
+          "%03d,in,%d,%d,_,%d,%d\n",
+            tRouter->_id,
+            idx3i,
+            idx4i,
+            tRouter->_input_channels[idx3i]->getActive(idx4i),
+            tRouter->_input_channels[idx3i]->getIdle()
+        );
+      }  
+    }
+    
+    for (int idx3o = 0; idx3o < tRouter->_outputs; idx3o++) {
+      for (int idx4o = 0; idx4o < tRouter->_classes; idx4o++) {
+        fprintf(resOutFile_linkUtil,
+          "%03d,out,%d,%d,_,%d,%d\n",
+            tRouter->_id,
+            idx3o,
+            idx4o,
+            tRouter->_output_channels[idx3o]->getActive(idx4o),
+            tRouter->_output_channels[idx3o]->getIdle()
+        );
+      }  
+    }
+    fflush(resOutFile_linkUtil);
+    fprintf(resOutFile_IcntPower,
+      "Router:,%03d,xbar:,%llu,bufRd:,%llu,bufWr:,%llu\n",
+        tRouter->_id,
+        tRouter->_crossbarUseCounter,
+        tRouter->_vcBufferReadCounter,
+        tRouter->_vcBufferWriteCounter
     );
-    for (int idx2 = 0; idx2 < _net[idx1]->NumRouters(); idx2++) {
-      Router * tRouter = _net[idx1]->GetRouter(idx2);
-      
-      for (int idx3i = 0; idx3i < tRouter->_inputs; idx3i++) {
-        for (int idx4i = 0; idx4i < tRouter->_classes; idx4i++) {
-          fprintf(resOutFile_linkUtil,
-            "%03d,in,%d,%d,_,%d,%d\n",
-              tRouter->_id,
-              idx3i,
-              idx4i,
-              tRouter->_input_channels[idx3i]->getActive(idx4i),
-              tRouter->_input_channels[idx3i]->getIdle()
-          );
-        }  
-      }
-      
-      for (int idx3o = 0; idx3o < tRouter->_outputs; idx3o++) {
-        for (int idx4o = 0; idx4o < tRouter->_classes; idx4o++) {
-          fprintf(resOutFile_linkUtil,
-            "%03d,out,%d,%d,_,%d,%d\n",
-              tRouter->_id,
-              idx3o,
-              idx4o,
-              tRouter->_output_channels[idx3o]->getActive(idx4o),
-              tRouter->_output_channels[idx3o]->getIdle()
-          );
-        }  
-      }
-      fflush(resOutFile_linkUtil);
-    } // end for num of routers/nodes
+    fflush(resOutFile_IcntPower);
+  } // end for num of routers/nodes
 
-    // for (int idx2 = 0; idx2 < _net[idx1]->NumChannels(); idx2++) {
-    //   fprintf(resOutFile_linkUtil,
-    //     "%d,%d,%d\n",
-    //       idx2,
-    //       _net[idx1]->GetChannels()[idx2]->getActive(0),
-    //       _net[idx1]->GetChannels()[idx2]->getIdle()
-    //   );
-    // }
-
-  } // end for subnets
+  // for (int idx2 = 0; idx2 < _net[idx1]->NumChannels(); idx2++) {
+  //   fprintf(resOutFile_linkUtil,
+  //     "%d,%d,%d\n",
+  //       idx2,
+  //       _net[idx1]->GetChannels()[idx2]->getActive(0),
+  //       _net[idx1]->GetChannels()[idx2]->getIdle()
+  //   );
+  // }
   fprintf(resOutFile_linkUtil,
     "----------------------------------------------------------------\n"
   );
   fclose(resOutFile_linkUtil);
+  fprintf(resOutFile_IcntPower,
+    "----------------------------------------------------------------\n"
+  );
+  fclose(resOutFile_IcntPower);
+} // end for subnets
   
 
   FILE *resOutFile_trt = fopen("testReadRoundTripTime_.csv", "a");
@@ -1742,18 +1766,20 @@ void InterconnectInterface::printLUT() {
   FILE *resOutFile_d = fopen("testRedirectPacketPerDest_.csv", "a");
   for (unsigned idx = 0; idx < (_n_shader + _n_mem); idx++ ) {
     if ( getDeviceID(idx) < _n_shader ) {
-      fprintf(resOutFile_d, "cluster node# %03u/%u:%u,%u\n", 
+      fprintf(resOutFile_d, "cluster node# %03u/%u:%u,%u,%u\n", 
         idx,
         _traffic_manager->NoCLUT_memPart.size(), 
         (_n_shader + _n_mem),
-        redirectPacketPerDestCount[idx]
+        redirectPacketPerDestCount[idx],
+        receivedPacketPerDestCount[idx]
       );
     } else {
-      fprintf(resOutFile_d, "mem node# %03u/%u:%u,%u\n", 
+      fprintf(resOutFile_d, "mem node# %03u/%u:%u,%u,%u\n", 
         idx, 
         _traffic_manager->NoCLUT_memPart.size(), 
         (_n_shader + _n_mem),
-        redirectPacketPerDestCount[idx]
+        redirectPacketPerDestCount[idx],
+        receivedPacketPerDestCount[idx]
       );
     }
 
@@ -2632,19 +2658,20 @@ void InterconnectInterface::Transfer2BoundaryBuffer(int subnet, int output)
 
 //   fclose(resOutFile_boundary);
 // }
-if (flit->pid == 18) {
-  FILE *resOutFile_boundary = fopen("testTr2BoundaryBuffer_.csv", "a");  
-  fprintf(resOutFile_boundary, ",%u,%03d,%03d,%03d|%03d,%d,%d\n", 
-    flit->pid,
-    output,
-    flit->src,
-    flit->destMC,
-    flit->dest,
-    subnet,
-    vc
-    );
-  fclose(resOutFile_boundary);
-} /////
+////
+// if (flit->pid == 18) {
+//   FILE *resOutFile_boundary = fopen("testTr2BoundaryBuffer_.csv", "a");  
+//   fprintf(resOutFile_boundary, ",%u,%03d,%03d,%03d|%03d,%d,%d\n", 
+//     flit->pid,
+//     output,
+//     flit->src,
+//     flit->destMC,
+//     flit->dest,
+//     subnet,
+//     vc
+//     );
+//   fclose(resOutFile_boundary);
+// }
 ////
       }
     }
@@ -2657,19 +2684,21 @@ void InterconnectInterface::WriteOutBuffer(int subnet, int output_icntID, Flit* 
   assert (_ejection_buffer[subnet][output_icntID][vc].size() < _ejection_buffer_capacity);
   _ejection_buffer[subnet][output_icntID][vc].push(flit);
 
-if (flit->pid == 18) {
-  FILE *resOutFile_boundary = fopen("testWriteEjectionBuffer_.csv", "a");  
-  fprintf(resOutFile_boundary, ",%u,%03d,%03d,%03d|%03d,%d,%d\n", 
-    flit->pid,
-    output_icntID,
-    flit->src,
-    flit->destMC,
-    flit->dest,
-    subnet,
-    vc
-    );
-  fclose(resOutFile_boundary);
-} /////
+  ////
+  // if (flit->pid == 18) {
+  //   FILE *resOutFile_boundary = fopen("testWriteEjectionBuffer_.csv", "a");  
+  //   fprintf(resOutFile_boundary, ",%u,%03d,%03d,%03d|%03d,%d,%d\n", 
+  //     flit->pid,
+  //     output_icntID,
+  //     flit->src,
+  //     flit->destMC,
+  //     flit->dest,
+  //     subnet,
+  //     vc
+  //     );
+  //   fclose(resOutFile_boundary);
+  // } 
+  ////
 
 }
 
@@ -2721,58 +2750,89 @@ void InterconnectInterface::_CreateNodeMap(unsigned n_shader, unsigned n_mem, un
     // The (<SM, Memory>, Memory Location Vector) map
     map<pair<unsigned,unsigned>, vector<unsigned> > preset_memory_map;
 
-    // preset memory and shader map, optimized for mesh
-    // good for 8 SMs and 8 memory ports, the map is as follows:
-    // +--+--+--+--+
-    // |C0|M0|C1|M1|
-    // +--+--+--+--+
-    // |M2|C2|M3|C3|
-    // +--+--+--+--+
-    // |C4|M4|C5|M5|
-    // +--+--+--+--+
-    // |M6|C6|M7|C7|
-    // +--+--+--+--+
-    // {
-    //   unsigned memory_node[] = {1, 3, 4, 6, 9, 11, 12, 14};
-    //   preset_memory_map[make_pair(8,8)] = vector<unsigned>(memory_node, memory_node+8);
-    // }
+    {
+      // preset memory and shader map, optimized for mesh
+      // good for 8 SMs and 8 memory ports, the map is as follows:
+      // +--+--+--+--+
+      // |C0|M0|C1|M1|
+      // +--+--+--+--+
+      // |M2|C2|M3|C3|
+      // +--+--+--+--+
+      // |C4|M4|C5|M5|
+      // +--+--+--+--+
+      // |M6|C6|M7|C7|
+      // +--+--+--+--+
+    
+      unsigned memory_node[] = {1, 3, 4, 6, 9, 11, 12, 14};
+      preset_memory_map[make_pair(8,8)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+    }
 
-    // // good for 28 SMs and 8 memory ports
-    // {
-    //   unsigned memory_node[] = {3, 7, 10, 12, 23, 25, 28, 32};
-    //   preset_memory_map[make_pair(28,8)] = vector<unsigned>(memory_node, memory_node+8);
-    // }
-
+    
     // // good for 56 SMs and 8 memory cores
     // {
     //   unsigned memory_node[] = {3, 15, 17, 29, 36, 47, 49, 61};
     //   preset_memory_map[make_pair(56,8)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
     // }
 
-    // // good for 110 SMs and 11 memory cores
-    // {
-    //   unsigned memory_node[] = {12, 20, 25, 28, 57, 60, 63, 92, 95,100,108};
-    //   preset_memory_map[make_pair(110, 11)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
-    // }
+    {
+      // good for 110 SMs and 11 memory cores
+      unsigned memory_node[] = {12, 20, 25, 28, 57, 60, 63, 92, 95,100,108};
+      preset_memory_map[make_pair(110, 11)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+    }
 
     // Khoa
     if(use_map == 1) {
-      {
-        // unsigned memory_node[] = { 9, 10, 11, 12, 13, 14, 
-        //                           17, 22, 
-        //                           25, 27, 28, 30,
-        //                           33, 35, 36, 38,
-        //                           41, 46,
-        //                           49, 50, 51, 52, 53, 54 };
-        // preset_memory_map[make_pair(40, 24)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
 
+      {
+        // good for 28 SMs and 8 memory ports
+        unsigned memory_node[] = {3, 7, 10, 12, 23, 25, 28, 32};
+        preset_memory_map[make_pair(28,8)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+      }
+
+      {
+        unsigned memory_node[] = { 1, 3, 5, 7, 
+                                  8, 10, 12, 14, 
+                                  17, 19, 21, 23,
+                                  24, 26, 28, 30,
+                                  33, 35, 37, 39,
+                                  40, 42, 44, 46,
+                                  49, 51, 53, 55,
+                                  56, 58, 60, 62 };
+        preset_memory_map[make_pair(32, 32)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+      }
+
+      {
+        unsigned memory_node[] = { 9, 10, 11, 12, 13, 14, 
+                                  18, 20, 22,
+                                  25, 27, 29,
+                                  34, 36, 38,
+                                  41, 43, 45,
+                                  49, 50, 51, 52, 53, 54 };
+        preset_memory_map[make_pair(40, 24)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+      }
+      
+      {
+        unsigned memory_node[] = { 10, 12, 14, 
+                                  17, 19, 21, 
+                                  26, 27, 28, 30, 
+                                  33, 35, 36, 37, 
+                                  42, 44, 46, 
+                                  49, 51, 53 };
+        preset_memory_map[make_pair(44, 20)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+      }
+      
+      {
         // unsigned memory_node[] = { 0, 1, 2, 3, 4, 5, 6, 7, 56, 57, 58, 59, 60, 61, 62, 63 };
         // unsigned memory_node[] = { 9, 11, 13, 15, 
         //                           24, 26, 28, 30, 
         //                           41, 43, 45, 47, 
         //                           56, 58, 60, 62 };
         // preset_memory_map[make_pair(48, 16)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
-        
+        unsigned memory_node[] = { 10, 13, 17, 19, 20, 22, 26, 29, 34, 37, 41, 43, 44, 46, 50, 53 };
+        preset_memory_map[make_pair(48, 16)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));
+      }
+      
+      {
         // unsigned memory_node[] = { 17, 19, 21, 23, 41, 43, 45, 47 };
         unsigned memory_node[] = { 10, 13, 17, 22, 41, 46, 50, 53 };
         preset_memory_map[make_pair(56, 8)] = vector<unsigned>(memory_node, memory_node+sizeof(memory_node)/sizeof(unsigned));

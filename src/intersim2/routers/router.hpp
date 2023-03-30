@@ -46,7 +46,8 @@ typedef Channel<Credit> CreditChannel;
 
 class Router : public TimedModule {
 
-protected:
+// protected: // Khoa
+public:
 
   static int const STALL_BUFFER_BUSY;
   static int const STALL_BUFFER_CONFLICT;
@@ -54,7 +55,7 @@ protected:
   static int const STALL_BUFFER_RESERVED;
   static int const STALL_CROSSBAR_CONFLICT;
 
-  // int _id;//
+  int _id;
   
   int _inputs;
   int _outputs;
@@ -69,7 +70,12 @@ protected:
 
   int _crossbar_delay;
   int _credit_delay;
-  
+  //// Khoa, 2023/03/29
+  long long unsigned _crossbarUseCounter;
+  long long unsigned _vcBufferReadCounter;
+  long long unsigned _vcBufferWriteCounter;
+  ////
+    
   vector<FlitChannel *>   _input_channels;
   vector<CreditChannel *> _input_credits;
   vector<FlitChannel *>   _output_channels;
@@ -207,7 +213,6 @@ public:
 // public:
   // GPUTrafficManager* _traffic_manager;
   vector<Router *> _routers;
-  int _id;
 ////
 
 

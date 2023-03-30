@@ -55,13 +55,16 @@ private:
   vector<vector<int> > _packet_size_rate;
   vector<int> _packet_size_max_val;
 
+public: // Khoa
+  vector<Network *> _net;
+  vector<vector<Router *> > _router;
+  
 protected:
   int _nodes;
   int _routers;
   int _vcs;
 
-  vector<Network *> _net;
-  vector<vector<Router *> > _router;
+  
 
   // ============ Traffic ============ 
 

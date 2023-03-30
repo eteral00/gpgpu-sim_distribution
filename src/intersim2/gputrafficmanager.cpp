@@ -570,7 +570,7 @@ bool GPUTrafficManager::reroutePacket(unsigned curIcntID, Flit* f) {
 
                 //// current access's  block address will be new sharing address
                 //// f's source, i.e., the requester, will be the new sharer
-                g_icnt_interface->totalHops_Update += computeManhDistance(8, curIcntID, homebaseIcntID);
+                g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, curIcntID, homebaseIcntID);
                 NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(blockAddress, f->src, curTime, curIcntID);
                 enforceLUTEntryLimit_cluster(homebaseIcntID);
                 // NoCLUT_cluster[homebaseIcntID].erase(sharingAddress); // remove old entry, for keep-only-last-info-entry design
@@ -938,6 +938,8 @@ GPUTrafficManager::GPUTrafficManager( const Configuration &config, const vector<
   debugCounter = 0;
   printDeadlock = 0;
   ////
+
+  _majorDim = (unsigned)sqrt((unsigned)_nodes);
 }
 
 GPUTrafficManager::~GPUTrafficManager()
@@ -1310,7 +1312,7 @@ unsigned long long mfBlAddress = mf->get_addr();
         break;
       case age_based:
         // f->pri = numeric_limits<int>::max() - mf->get_timestamp(); // read reply inherit priority of its corresponding request
-        f->pri = numeric_limits<unsigned>::max() - (100 * (time + 1)) + computeManhDistance(8, f->src, f->dest); // give priority to long-distance packet
+        f->pri = numeric_limits<unsigned>::max() - (100 * (time + 1)) + computeManhDistance(_majorDim, f->src, f->dest); // give priority to long-distance packet
         // f->pri = numeric_limits<int>::max() - time;
         assert(f->pri >= 0);
         break;
@@ -1711,7 +1713,7 @@ long long unsigned curTime = getTime();
                 unsigned homebaseIcntID = g_icnt_interface->getHomebase(blockAddress);
                 long long unsigned sharingAddress;
 
-                g_icnt_interface->totalHops_Update += computeManhDistance(8, n, homebaseIcntID);
+                g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, n, homebaseIcntID);
 
                 // update homebase of new address
                 NoCLUT_cluster[homebaseIcntID][blockAddress].insertSharingInfo(cf->dest, curTime, n); // n = cf->src
@@ -2081,10 +2083,10 @@ long long unsigned LUTRecord_mP::enforceSharingLimit(long long unsigned curTime)
         unsigned homebaseIcntID = g_icnt_interface->getHomebase(oldestAddress);
         g_icnt_interface->_traffic_manager->removeLUTEntry_cluster(homebaseIcntID, oldestAddress);
         _sharingAddresses.erase(oldestAddress);
-        g_icnt_interface->totalLUTWrite_MC++;
+        // g_icnt_interface->totalLUTWrite_MC++; // Khoa, 2023/03/28, unnecessary, already ++ in chain of operations
       }
     }
-    g_icnt_interface->totalLUTRead_MC++;
+    // g_icnt_interface->totalLUTRead_MC++; // Khoa, 2023/03/28, unnecessary, already ++ in chain of operations
 
     return oldestAddress;
   }

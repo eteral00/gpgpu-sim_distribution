@@ -71,6 +71,16 @@ public:
   inline vector<int> const & GetActivity() const {
     return _active;
   }
+  // Khoa
+  int getIdle() {
+    return _idle;
+  }
+  int getActive(unsigned packetClass) {
+    return _active[packetClass];
+  }
+  void incrementIdle() {
+    _idle++;
+  }
 
   // Send flit 
   virtual void Send(Flit * flit);
