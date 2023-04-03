@@ -534,6 +534,7 @@ bool GPUTrafficManager::reroutePacket(unsigned curIcntID, Flit* f) {
           f->isProbeFlag = false; // change to normal read request packet
         }
         //// if not probe, and use only address sharing, no redirect, i.e., MCs serve data
+        //// here, not using address_sharing => mc redirects requests
         else if (_use_address_sharing_only == 0) {
           if (g_icnt_interface->getDeviceID(curIcntID) >= _n_shader) {
             //// not probe, i.e., normal read request arriving at destination
@@ -552,7 +553,13 @@ bool GPUTrafficManager::reroutePacket(unsigned curIcntID, Flit* f) {
               // mft->redirectedAddress = NoCLUT_memPart[curIcntID][dataKey].first; // set redirect address // old design
 
               mft->redirectedAddress = NoCLUT_memPart[curIcntID][dataKey]._lastSharingAddress; // set redirect address
-              // g_icnt_interface->changeMfData(mft, f->src); 
+              if (_use_approx_sharing) {
+                g_icnt_interface->changeMfData(mft, f->src);
+                
+              } 
+              //// 2023/03/ , update LuT_mem
+              // NoCLUT_memPart[curIcntID][dataKey].insertSharingAddress(blockAddress, curTime, f->src); // moved
+              ////
               ////
 
               // if (_contentSharing_MC_serve_newAddress) {
@@ -588,7 +595,7 @@ bool GPUTrafficManager::reroutePacket(unsigned curIcntID, Flit* f) {
             } else {
               //// no matching content from previous accesses
               //// reply will be exact data
-            }
+            } //// Khoa, 2023/03/31, moved check LuT_mem to when "replies" are sent
 
             ////// update homebase of new address (always) (also opportunistic way)
             // //// moving this to when MC sending reply
@@ -1316,15 +1323,15 @@ unsigned long long mfBlAddress = mf->get_addr();
                       f->redirectedFlag = true;
                       f->isProbeFlag = false;
 
-                      //// modifying actual data in memory and reload
-                      //// only used if first access of an address is also redirected by MC, or replied with approx data
-                      //// not used when first access of an address is replied with exact data
-                      mf->redirectedAddress = NoCLUT_memPart[source][dataKey]._lastSharingAddress; // set redirect address
-                      if (_use_approx_sharing) {
-                        g_icnt_interface->changeMfData(mf, f->src);
-                      }
-                      ////
-                      // Khoa, 2032/03/28
+                      // //// modifying actual data in memory and reload
+                      // //// only used if first access of an address is also redirected by MC, or replied with approx data
+                      // //// not used when first access of an address is replied with exact data
+                      // mf->redirectedAddress = NoCLUT_memPart[source][dataKey]._lastSharingAddress; // set redirect address
+                      // if (_use_approx_sharing) {
+                      //   g_icnt_interface->changeMfData(mf, f->src);
+                      // } // 2023/03/31, moved
+                      // ////
+                      // Khoa, 2023/03/28
                       redirectedReadReq[source]++;
                     } else {
                       g_icnt_interface->totalReadReply_MC++;
@@ -1344,13 +1351,16 @@ unsigned long long mfBlAddress = mf->get_addr();
                       //// f's source, i.e., the requester, will be the new sharer
                       g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID); // source = MC IcntId
                       if (_contentSharing_MC_serve_newAddress == 0) { // fix update bug
-                        NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(mfBlAddress, f->src, curTime, source); // f-> src = requester, source = MC IcntId
+                        NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(mfBlAddress, f->src, curTime, source); // f->src = requester, source = MC IcntId
                       } else {
                         NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(mfBlAddress, f->dest, curTime, source); // f->dest = requester, source = MC IcntId
                       }
                       enforceLUTEntryLimit_cluster(homebaseIcntID);
                       // NoCLUT_cluster[homebaseIcntID].erase(sharingAddress); // remove old entry, for keep-only-last-info-entry design
                     }
+                    //// 2023/03/ , update LuT_mem
+                    NoCLUT_memPart[source][dataKey].insertSharingAddress(mfBlAddress, curTime, packet_destination);
+                    ////
 
                   } else {
                     //// entry not found, add new entry, 

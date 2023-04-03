@@ -405,7 +405,7 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
   //// as FP16 (actually converted to FP32)
   half_float::half tempVal;
   tempVal.data_ = valueBlock[0];
-  // float tempValFloat = float(tempVal);
+  float tempValFloat = float(tempVal);
   // float valSum = tempValFloat;
   // float valMin = tempValFloat;
   // float valMax = tempValFloat;
@@ -419,7 +419,7 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
 
   for (unsigned idx = 1; idx < numberOfVal; idx++) {
     // tempVal.data_ = valueBlock[idx];
-    tempVal.data_ = valueBlock[idx] & 0xfe00; // Khoa, 2023/02/22, take only 7 bits out of 16 bits
+    tempVal.data_ = valueBlock[idx] & 0xff00; // Khoa, 2023/02/22, take 8 bits out of 16 bits
     // tempValFloat = float(tempVal);
     // valSum += tempValFloat;
     // if (tempValFloat < valMin) {
@@ -443,7 +443,7 @@ std::string InterconnectInterface::approx_AverageBinary(uint16_t * valueBlock, u
     tempVal.data_ = valueBlock[idx];
     // tempValFloat = float(tempVal);
     // if (tempValFloat > valAverage) {
-    if (tempVal < 0) {
+    if (tempVal > valAverage) {
       binarizedBlock[idx] = true;
     } else {
       binarizedBlock[idx] = false;
