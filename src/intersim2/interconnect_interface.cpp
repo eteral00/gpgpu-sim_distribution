@@ -607,6 +607,7 @@ InterconnectInterface* InterconnectInterface::New(const char* const config_file)
   icnt_interface->totalHops_ReadRequest = 0;
   icnt_interface->totalHops_ReadReply = 0;
   icnt_interface->totalHops_Update = 0;
+  icnt_interface->updateMessageCount = 0; // Khoa, 2023/04/03
   icnt_interface->totalLUTRead_Homebase = 0;
   icnt_interface->totalLUTWrite_Homebase = 0;
   icnt_interface->totalLUTRead_MC = 0;
@@ -1597,12 +1598,13 @@ fprintf(resOutFile_haw,
     totalAllRequestWaitTimeAtMC
 );
 fprintf(resOutFile_haw,
-  ",%u,%u,%u,%u,_,%u,%u,%u,%u,wrong_space_count:%u\n",
+  ",%u,%u,%u,%u,_,%u,%u,%u,%u,%u,wrong_space_count: %u\n",
     totalPacketHopsCount, totalHops_ReadRequest, totalHops_ReadReply, totalHops_Update,
     totalLUTRead_Homebase,
     totalLUTWrite_Homebase,
     totalLUTRead_MC,
     totalLUTWrite_MC,
+    updateMessageCount,
     wrongSpaceCount
 );
 

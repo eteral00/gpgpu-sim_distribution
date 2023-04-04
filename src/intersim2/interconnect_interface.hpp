@@ -195,6 +195,7 @@ public:
   unsigned totalHops_ReadRequest;
   unsigned totalHops_ReadReply;
   unsigned totalHops_Update;
+  unsigned updateMessageCount; // Khoa, 2023/04/03
   unsigned totalLUTRead_Homebase;
   unsigned totalLUTWrite_Homebase;
   unsigned totalLUTRead_MC;

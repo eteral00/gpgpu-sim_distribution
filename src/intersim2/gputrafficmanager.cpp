@@ -1285,6 +1285,7 @@ unsigned long long mfBlAddress = mf->get_addr();
               NoCLUT_cluster[homebaseIcntID][mf->redirectedAddress].changeNode(packet_destination, curTime, source);
               enforceLUTEntryLimit_cluster(homebaseIcntID); 
               g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
+              g_icnt_interface->updateMessageCount++; // Khoa, 2023/04/03
             } // Khoa, 2023/02/27
 
             if (g_icnt_interface->getDeviceID(source) < _n_shader) {
@@ -1296,6 +1297,7 @@ unsigned long long mfBlAddress = mf->get_addr();
               NoCLUT_cluster[homebaseIcntID][mfBlAddress].changeNode(packet_destination, curTime, source); // packet_destination is requester, source is peer cluster
               enforceLUTEntryLimit_cluster(homebaseIcntID); // Khoa, 2023/02
               g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
+              g_icnt_interface->updateMessageCount++; // Khoa, 2023/04/03
 
             } else {
               //// source is MC
@@ -1306,6 +1308,7 @@ unsigned long long mfBlAddress = mf->get_addr();
               NoCLUT_cluster[homebaseIcntID][mfBlAddress].insertSharingInfo(packet_destination, curTime, source); // packet_destination is requester, source is MC
               enforceLUTEntryLimit_cluster(homebaseIcntID); // Khoa, 2023/02
               g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID);
+              g_icnt_interface->updateMessageCount++; // Khoa, 2023/04/03
 
               //// Khoa, 2023/02/05
               if ( _use_address_sharing_only == 0) {
@@ -1350,6 +1353,7 @@ unsigned long long mfBlAddress = mf->get_addr();
                       //// current access's  block address will be new sharing address
                       //// f's source, i.e., the requester, will be the new sharer
                       g_icnt_interface->totalHops_Update += computeManhDistance(_majorDim, source, homebaseIcntID); // source = MC IcntId
+                      g_icnt_interface->updateMessageCount++; // Khoa, 2023/04/03
                       if (_contentSharing_MC_serve_newAddress == 0) { // fix update bug
                         NoCLUT_cluster[homebaseIcntID][sharingAddress].changeSharingInfo(mfBlAddress, f->src, curTime, source); // f->src = requester, source = MC IcntId
                       } else {
